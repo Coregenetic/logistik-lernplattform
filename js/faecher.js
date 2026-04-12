@@ -76,10 +76,14 @@ async function showFaecherMob() {
 // ── KAPITEL DETAIL ────────────────────────────────────────────
 async function showKapitel(kapitelId, fachId) {
   showSpinner();
-  const { data: kap }     = await db.from('fach_kapitel').select('*, faecher(id,name,icon)').eq('id', kapitelId).maybeSingle();
+  const { data: kap } = await db.from('fach_kapitel').select('*, faecher(id,name,icon)').eq('id', kapitelId).maybeSingle();
   
-  // OPTIMIERT: Auch hier nur die schlanken Daten ohne das JSON!
-  const { data: inhalte } = await db.from('fach_inhalte').select('id, titel, typ, reihenfolge, kapitel_id').eq('kapitel_id', kapitelId).order('reihenfolge');
+  // OPTIMIERT: Lädt Inhalte + Fortschritt!
+  const [{ data: inhalte }, { data: fp }] = await Promise.all([
+    db.from('fach_inhalte').select('id, titel, typ, reihenfolge, kapitel_id').eq('kapitel_id', kapitelId).order('reihenfolge'),
+    db.from('fach_fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
+  ]);
+  const doneIds = (fp || []).map(f => f.inhalt_id);
   
   const { data: vokabeln } = await db.from('vokabeln').select('id').eq('kapitel_id', kapitelId);
   const isEnglisch = fachId === 1;
@@ -87,19 +91,22 @@ async function showKapitel(kapitelId, fachId) {
   const typeLabel  = { text:'Text', quiz:'Quiz', grammatik:'Grammatik' };
   const hasVok     = isEnglisch && vokabeln && vokabeln.length > 0;
 
-  const inhaltCards = (inhalte||[]).map(i => `
-    <div class="card" style="margin-bottom:10px;cursor:pointer" onclick="showFachInhalt(${i.id},${kapitelId},${fachId})">
+  const inhaltCards = (inhalte||[]).map(i => {
+    const isDone = doneIds.includes(i.id);
+    return `
+    <div class="card" style="margin-bottom:10px;cursor:pointer;${isDone ? 'border-left:4px solid var(--correct)' : ''}" onclick="showFachInhalt(${i.id},${kapitelId},${fachId})">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:1.4rem">${typeIcon[i.typ]||'📄'}</span>
+          <span style="font-size:1.4rem">${isDone ? '✅' : (typeIcon[i.typ]||'📄')}</span>
           <div>
-            <div style="font-weight:600">${i.titel}</div>
+            <div style="font-weight:600;${isDone ? 'color:var(--correct)' : ''}">${i.titel}</div>
             <div style="font-size:0.78rem;color:var(--muted2)">${typeLabel[i.typ]||i.typ}</div>
           </div>
         </div>
         <span style="color:var(--accent)">→</span>
       </div>
-    </div>`).join('') || '';
+    </div>`;
+  }).join('') || '';
 
   const vokabelSection = hasVok ? `
     <h2 style="margin-bottom:14px">🗂 Vokabeln <span style="font-size:0.8rem;color:var(--muted2);font-weight:400">${vokabeln.length} Wörter</span></h2>
@@ -133,15 +140,18 @@ async function showKapitel(kapitelId, fachId) {
       <span style="color:var(--muted)">›</span>
     </div>` : '';
 
-  const mobInhalte = (inhalte||[]).map(i => `
-    <div class="mob-inhalt-card" onclick="showFachInhalt(${i.id},${kapitelId},${fachId})">
-      <div class="mob-inhalt-type">${typeIcon[i.typ]||'📄'}</div>
+  const mobInhalte = (inhalte||[]).map(i => {
+    const isDone = doneIds.includes(i.id);
+    return `
+    <div class="mob-inhalt-card" onclick="showFachInhalt(${i.id},${kapitelId},${fachId})" style="${isDone ? 'border-left:3px solid var(--correct)' : ''}">
+      <div class="mob-inhalt-type">${isDone ? '✅' : (typeIcon[i.typ]||'📄')}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:0.9rem">${i.titel}</div>
+        <div style="font-weight:600;font-size:0.9rem;${isDone ? 'color:var(--correct)' : ''}">${i.titel}</div>
         <div style="font-size:0.75rem;color:var(--muted2)">${typeLabel[i.typ]||i.typ}</div>
       </div>
       <span style="color:var(--muted)">›</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   setDesktop(`
     <button class="btn btn-secondary btn-sm" onclick="showFach(${fachId})" style="margin-bottom:20px">← ${kap.faecher.name}</button>
@@ -167,28 +177,34 @@ async function showKapitel(kapitelId, fachId) {
   `);
 }
 
-// ── FACH-INHALT ANZEIGEN ──────────────────────────────────────
 async function showFachInhalt(inhaltId, kapitelId, fachId) {
-  const { data: i } = await db.from('fach_inhalte').select('*, fach_kapitel(id,name,faecher(name))').eq('id', inhaltId).maybeSingle();
+  const [{ data: i }, { data: isDone }] = await Promise.all([
+    db.from('fach_inhalte').select('*, fach_kapitel(id,name,faecher(name))').eq('id', inhaltId).maybeSingle(),
+    db.from('fach_fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId).maybeSingle()
+  ]);
+  
   if (!i) return;
 
   if (i.typ === 'quiz') {
     renderQuiz(i, `← ${i.fach_kapitel.name}`, () => showKapitel(kapitelId, fachId));
   } else {
     const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    
+    const doneButtonHTML = isDone 
+      ? `<button class="btn btn-secondary" disabled>✅ Bereits erledigt</button>`
+      : `<button class="btn btn-success" onclick="markFachDone(${inhaltId},${kapitelId},${fachId})">✅ Als erledigt markieren</button>`;
+
     setDesktop(`
       <button class="btn btn-secondary btn-sm" onclick="showKapitel(${kapitelId},${fachId})" style="margin-bottom:20px">← ${i.fach_kapitel.name}</button>
       <h1 style="margin-bottom:20px">${i.titel}</h1>
       <div class="card"><div class="content-text">${html}</div></div>
-      <div style="margin-top:16px">
-        <button class="btn btn-success" onclick="markFachDone(${inhaltId},${kapitelId},${fachId})">✅ Als erledigt markieren</button>
-      </div>
+      <div style="margin-top:16px">${doneButtonHTML}</div>
     `);
     setMobile(`
       <button class="mob-back" onclick="showKapitel(${kapitelId},${fachId})">← ${i.fach_kapitel.name}</button>
       <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${i.titel}</div>
       <div class="card" style="margin-bottom:16px"><div class="content-text" style="font-size:0.92rem;line-height:1.7">${html}</div></div>
-      <button class="btn btn-success btn-full" onclick="markFachDone(${inhaltId},${kapitelId},${fachId})">✅ Als erledigt markieren</button>
+      ${doneButtonHTML.replace('class="btn ', 'class="btn btn-full ')}
     `);
   }
 }
