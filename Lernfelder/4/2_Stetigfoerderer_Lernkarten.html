@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Stetigförderer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 14px 40px; }
+  h1 { font-size: 1.3rem; font-weight: 700; color: #a78bfa; margin-bottom: 3px; text-align: center; }
+  .subtitle { font-size: 0.8rem; color: #94a3b8; margin-bottom: 20px; text-align: center; }
+  .score-box { display: flex; gap: 16px; margin-bottom: 16px; }
+  .score-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot-green { background: #4ade80; } .dot-red { background: #f87171; }
+  .progress-bar { width: 100%; max-width: 500px; background: #1e293b; border-radius: 999px; height: 7px; margin-bottom: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #a78bfa, #f472b6); border-radius: 999px; transition: width 0.4s ease; }
+  .counter { font-size: 0.75rem; color: #64748b; margin-bottom: 16px; text-align: center; }
+  .question-card { width: 100%; max-width: 500px; background: linear-gradient(135deg, #1e293b, #0f1e35); border: 1px solid #334155; border-radius: 18px; padding: 22px 18px; margin-bottom: 16px; }
+  .question-text { font-size: 1rem; font-weight: 600; line-height: 1.5; text-align: center; }
+  .answers { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .answer-btn { width: 100%; padding: 14px 16px; border: 2px solid #334155; border-radius: 14px; background: #1e293b; color: #f1f5f9; font-size: 0.92rem; font-weight: 500; text-align: left; cursor: pointer; transition: all 0.2s; line-height: 1.4; }
+  .answer-btn:active { transform: scale(0.98); }
+  .answer-btn.correct { background: #14532d; border-color: #4ade80; color: #4ade80; }
+  .answer-btn.wrong { background: #3f1f1f; border-color: #f87171; color: #f87171; }
+  .answer-btn.reveal { background: #1a3a2a; border-color: #4ade80; color: #86efac; }
+  .answer-btn:disabled { cursor: default; }
+  .explanation { width: 100%; max-width: 500px; border-radius: 14px; padding: 14px 16px; font-size: 0.88rem; line-height: 1.5; margin-bottom: 14px; display: none; }
+  .explanation.correct { background: #14532d44; border: 1px solid #4ade8066; color: #86efac; }
+  .explanation.wrong { background: #3f1f1f44; border: 1px solid #f8717166; color: #fca5a5; }
+  .next-btn { width: 100%; max-width: 500px; padding: 15px; border: none; border-radius: 14px; background: linear-gradient(135deg, #a78bfa, #f472b6); color: #0f172a; font-size: 1rem; font-weight: 700; cursor: pointer; display: none; margin-bottom: 10px; }
+  .result-screen { text-align: center; max-width: 500px; width: 100%; display: none; }
+  .result-emoji { font-size: 3rem; margin-bottom: 14px; }
+  .result-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; color: #a78bfa; }
+  .result-sub { color: #94a3b8; margin-bottom: 20px; font-size: 0.9rem; }
+  .result-score { font-size: 2.8rem; font-weight: 800; color: #4ade80; margin-bottom: 24px; }
+  .restart-btn { background: linear-gradient(135deg, #a78bfa, #f472b6); color: #0f172a; padding: 14px 32px; border: none; border-radius: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>⚙️ Stetigförderer</h1>
+<p class="subtitle">Multiple Choice – Thema 2 von 5</p>
+
+<div id="quiz">
+  <div class="score-box">
+    <div class="score-item"><div class="dot dot-green"></div><span id="correct-count">0 Richtig</span></div>
+    <div class="score-item"><div class="dot dot-red"></div><span id="wrong-count">0 Falsch</span></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <div class="counter" id="counter">Frage 1 von 10</div>
+  <div class="question-card"><div class="question-text" id="question"></div></div>
+  <div class="answers" id="answers"></div>
+  <div class="explanation" id="explanation"></div>
+  <button class="next-btn" id="next-btn" onclick="nextQuestion()">Weiter →</button>
+</div>
+
+<div class="result-screen" id="result">
+  <div class="result-emoji" id="r-emoji">🎉</div>
+  <div class="result-title">Fertig!</div>
+  <div class="result-sub" id="r-sub"></div>
+  <div class="result-score" id="r-score"></div>
+  <button class="restart-btn" onclick="restart()">🔄 Nochmal üben</button>
+</div>
+
+<script>
+const questions = [{"q": "Was ist das Hauptmerkmal eines Stetigförderers?", "answers": ["Er transportiert Güter mit regelmäßigen Pausen", "Er transportiert Güter kontinuierlich ohne Unterbrechung", "Er kann Lasten heben und senken wie ein Kran", "Er wird ausschließlich außerhalb von Gebäuden eingesetzt"], "correct": 1, "explanation": "Stetigförderer transportieren Güter ohne Unterbrechung in gleichmäßiger Bewegung – das ist ihr Hauptmerkmal im Gegensatz zu Unstetigförderern wie Gabelstaplern."}, {"q": "Was unterscheidet flurgebundene von flurfreien Stetigförderern?", "answers": ["Flurgebundene sind schneller als flurfreie", "Flurfreie können nur Paletten transportieren", "Flurgebundene fahren bodennah, flurfreie sind an Decke oder erhöht aufgehängt", "Flurgebundene benötigen keinen Strom, flurfreie schon"], "correct": 2, "explanation": "Flurgebunden = bodennah (z.B. Förderband, Rollenbahn). Flurfrei = an der Decke oder erhöht befestigt (z.B. Elektrohängebahn, Kreiskettenförderer) – gibt den Boden frei."}, {"q": "Was ist ein typisches Beispiel für einen flurgebundenen Stetigförderer?", "answers": ["Elektrohängebahn", "Kreiskettenförderer", "Power-and-Free-Förderer", "Gurtbandförderer (Förderband)"], "correct": 3, "explanation": "Das Gurtband (Förderband) fährt bodennah und ist damit flurgebunden. Elektrohängebahn, Kreiskettenförderer und Power-and-Free sind flurfreie Systeme."}, {"q": "Was ist eine Elektrohängebahn (EHB)?", "answers": ["Ein Gabelstapler mit elektrischem Antrieb", "Ein Förderband mit elektrischem Antrieb auf dem Boden", "Elektrisch angetriebene Fahrzeuge an einer Deckenschiene, die individuell steuerbar sind", "Eine Hebebühne für schwere Lasten in der Produktion"], "correct": 2, "explanation": "Die EHB besteht aus elektrisch angetriebenen Fahrzeugen, die an Deckenschienen hängen. Jedes Fahrzeug kann einzeln gesteuert, angehalten und umgeleitet werden – sehr flexibel."}, {"q": "Was ist der Vorteil des Power-and-Free-Förderers gegenüber einem normalen Kettenförderer?", "answers": ["Er ist günstiger in der Anschaffung", "Die Lastträger können einzeln gestoppt oder ausgekoppelt werden", "Er kann auch außen im Freien eingesetzt werden", "Er benötigt keinen elektrischen Antrieb"], "correct": 1, "explanation": "Beim Power-and-Free läuft die Antriebskette (Power) ständig, aber die einzelnen Lastträger (Free) können unabhängig voneinander angehalten, gepuffert oder ausgekoppelt werden."}, {"q": "Welcher ist ein typischer Nachteil von Stetigförderern?", "answers": ["Sie sind sehr langsam im Vergleich zu Gabelstaplern", "Sie können keine schweren Lasten transportieren", "Der Transportweg ist fest – keine flexible Umleitung möglich", "Sie benötigen immer einen ausgebildeten Fahrer"], "correct": 2, "explanation": "Stetigförderer sind auf festen Strecken installiert und können nicht einfach umgeleitet werden. Bei Streckenänderungen ist ein aufwändiger Umbau nötig – das ist ein zentraler Nachteil."}, {"q": "Welche Gefahr geht typischerweise von Stetigförderern aus?", "answers": ["Kippen der Anlage bei Überladung", "Einzugsgefahr für Haare, Kleidung oder Körperteile", "Gasaustritt bei elektrischem Defekt", "Ausrutschen des Fahrers beim Einsteigen"], "correct": 1, "explanation": "An Stetigförderern besteht Einzugsgefahr – lose Kleidung, Haare oder Körperteile können von beweglichen Teilen erfasst werden. Deshalb sind Schutzgitter und PSA Pflicht."}, {"q": "Was ist ein Kreiskettenförderer?", "answers": ["Ein Förderband, das im Kreis angeordnet ist", "Ein Kran, der sich um die eigene Achse dreht", "Ein flurfreier Förderer, bei dem Haken an einer endlosen Kette im Kreis geführt werden", "Ein Hubwagen, der automatisch Kreise im Lager fährt"], "correct": 2, "explanation": "Der Kreiskettenförderer ist flurfrei: Haken oder Träger hängen an einer endlosen, im Kreis laufenden Kette. Typisch in der Bekleidungsindustrie oder bei Lackieranlagen."}, {"q": "Welche Maßnahme schützt vor Gefahren an Stetigförderern?", "answers": ["Tragen von Schmuck und Ringen zur besseren Sichtbarkeit", "Notausschalter und Schutzgitter an allen beweglichen Teilen", "Maximale Fördergeschwindigkeit einstellen", "Stetigförderer nur nachts betreiben, wenn keine Mitarbeiter anwesend sind"], "correct": 1, "explanation": "Notausschalter (Not-Halt) ermöglichen sofortiges Stoppen, Schutzgitter verhindern Zugang zu gefährlichen Bereichen. Beides sind zentrale Schutzmaßnahmen an Stetigförderern."}, {"q": "Wo werden Stetigförderer typischerweise eingesetzt?", "answers": ["Auf Baustellen für den Transport von Baumaterial", "Im Hafen für das Be- und Entladen von Schiffen", "In Paketverteilzentren, Produktionen und Supermärkten für gleichmäßige Massenströme", "Ausschließlich in der Automobilindustrie"], "correct": 2, "explanation": "Stetigförderer eignen sich ideal für gleichmäßige, große Gütermengen auf festen Strecken – klassisch in Paketverteilzentren (Rollenbahnen), Supermärkten (Kassenband) und Produktionslinien."}];
+let shuffled, current = 0, correct = 0, wrong = 0;
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function start() {
+  shuffled = shuffle(questions).map(q => {
+    const indexed = q.answers.map((a, i) => ({text: a, isCorrect: i === q.correct}));
+    const shuffledA = shuffle(indexed);
+    return {...q, shuffledAnswers: shuffledA};
+  });
+  current = 0; correct = 0; wrong = 0;
+  document.getElementById('correct-count').textContent = '0 Richtig';
+  document.getElementById('wrong-count').textContent = '0 Falsch';
+  document.getElementById('quiz').style.display = 'flex';
+  document.getElementById('quiz').style.flexDirection = 'column';
+  document.getElementById('quiz').style.alignItems = 'center';
+  document.getElementById('quiz').style.width = '100%';
+  document.getElementById('result').style.display = 'none';
+  render();
+}
+
+function render() {
+  const q = shuffled[current];
+  document.getElementById('counter').textContent = `Frage ${current+1} von ${shuffled.length}`;
+  document.getElementById('progress').style.width = `${(current/shuffled.length)*100}%`;
+  document.getElementById('question').textContent = q.q;
+  const expl = document.getElementById('explanation');
+  expl.style.display = 'none'; expl.className = 'explanation';
+  document.getElementById('next-btn').style.display = 'none';
+  const container = document.getElementById('answers');
+  container.innerHTML = '';
+  q.shuffledAnswers.forEach((a, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = a.text;
+    btn.onclick = () => answer(a.isCorrect, q.explanation, i);
+    container.appendChild(btn);
+  });
+}
+
+function answer(isCorrect, explanation, chosenIdx) {
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach(b => b.disabled = true);
+  const q = shuffled[current];
+  btns.forEach((b, i) => {
+    if (q.shuffledAnswers[i].isCorrect) b.classList.add(i === chosenIdx ? 'correct' : 'reveal');
+    else if (i === chosenIdx) b.classList.add('wrong');
+  });
+  const expl = document.getElementById('explanation');
+  expl.textContent = (isCorrect ? '✅ ' : '❌ ') + explanation;
+  expl.className = 'explanation ' + (isCorrect ? 'correct' : 'wrong');
+  expl.style.display = 'block';
+  if (isCorrect) { correct++; document.getElementById('correct-count').textContent = correct + ' Richtig'; }
+  else { wrong++; document.getElementById('wrong-count').textContent = wrong + ' Falsch'; }
+  document.getElementById('next-btn').style.display = 'block';
+}
+
+function nextQuestion() {
+  current++;
+  if (current >= shuffled.length) showResult();
+  else render();
+}
+
+function showResult() {
+  document.getElementById('quiz').style.display = 'none';
+  document.getElementById('result').style.display = 'block';
+  const pct = Math.round((correct / shuffled.length) * 100);
+  document.getElementById('r-score').textContent = `${correct} / ${shuffled.length} richtig (${pct}%)`;
+  document.getElementById('r-sub').textContent = pct >= 80 ? 'Stark! Du beherrschst das Thema 💪' : pct >= 50 ? 'Gut! Noch ein bisschen üben 👍' : 'Weitermachen – du schaffst das! 📚';
+  document.getElementById('r-emoji').textContent = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📚';
+}
+
+function restart() { start(); }
+start();
+</script>
+</body>
+</html>

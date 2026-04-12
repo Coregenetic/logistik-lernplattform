@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dashboard – Lernplattform Logistik</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* ── TOGGLE ─────────────────────────────────────── */
+.lf-locked { opacity:0.45; cursor:not-allowed; position:relative; }
+.lf-locked::after { content:'🔒'; position:absolute; top:12px; right:12px; font-size:1rem; }
+.toggle { position:relative; width:40px; height:22px; cursor:pointer; display:inline-block; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; inset:0; background:var(--border2); border-radius:99px; transition:0.2s; }
+.toggle-slider:before { content:''; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:0.2s; }
+input:checked + .toggle-slider { background:var(--correct); }
+input:checked + .toggle-slider:before { transform:translateX(18px); }
+
+/* ── MOBILE BOTTOM NAV ──────────────────────────── */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-nav-inner {
+  display: flex;
+  height: 58px;
+}
+.bn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+.bn-item.active { color: var(--accent); }
+.bn-icon { font-size: 1.3rem; line-height: 1; }
+
+/* ── MOBILE HEADER ──────────────────────────────── */
+.mob-header {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  height: 52px;
+  align-items: center;
+  justify-content: space-between;
+}
+.mob-header-brand { font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 700; }
+.mob-header-right { display: flex; align-items: center; gap: 8px; }
+.mob-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; font-weight: 700; color: #fff;
+  cursor: pointer;
+  border: none;
+}
+
+/* ── MOBILE MAIN CONTENT ────────────────────────── */
+.mob-main {
+  display: none;
+  padding: 16px 16px 80px;
+  min-height: calc(100vh - 52px);
+}
+
+/* ── MOBILE LF CARD (list style) ───────────────── */
+.mob-lf-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.mob-lf-card:active { opacity: 0.8; }
+.mob-lf-card.locked { opacity: 0.45; cursor: not-allowed; }
+.mob-lf-icon-wrap {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.mob-lf-info { flex: 1; min-width: 0; }
+.mob-lf-num { font-size: 0.7rem; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.mob-lf-name { font-size: 0.92rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mob-lf-bar { height: 3px; background: var(--border); border-radius: 99px; margin-top: 5px; }
+.mob-lf-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; }
+.mob-lf-arrow { color: var(--muted); font-size: 1.1rem; flex-shrink: 0; }
+
+/* ── MOBILE STAT CARDS ──────────────────────────── */
+.mob-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.mob-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.mob-stat-val { font-size: 1.6rem; font-weight: 700; }
+.mob-stat-lbl { font-size: 0.75rem; color: var(--muted2); margin-top: 2px; }
+
+/* ── MOBILE SECTION TITLE ───────────────────────── */
+.mob-section { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+/* ── MOBILE GREETING ────────────────────────────── */
+.mob-greeting { font-size: 1.2rem; font-weight: 700; margin-bottom: 2px; }
+.mob-greeting-sub { font-size: 0.85rem; color: var(--muted2); margin-bottom: 20px; }
+
+/* ── MOBILE INHALT ──────────────────────────────── */
+.mob-inhalt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.mob-inhalt-type { width: 40px; height: 40px; border-radius: 10px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+
+/* ── BACK BUTTON MOBILE ─────────────────────────── */
+.mob-back { display: flex; align-items: center; gap: 6px; color: var(--accent); font-size: 0.9rem; font-weight: 600; background: none; border: none; font-family: inherit; cursor: pointer; margin-bottom: 16px; padding: 0; }
+
+/* ── IFRAME CONTAINER ───────────────────────────── */
+.iframe-container {
+  width: 100%;
+  height: 70vh;
+  min-height: 500px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow: hidden;
+  position: relative; /* Wichtig für den Beenden-Button */
+}
+.iframe-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Vollbild-Button (nur sichtbar im Fullscreen-Modus) */
+.exit-fs-btn {
+  display: none;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+  padding: 10px 16px;
+}
+.iframe-container:fullscreen { border: none; border-radius: 0; }
+.iframe-container:-webkit-full-screen { border: none; border-radius: 0; }
+.iframe-container:fullscreen .exit-fs-btn { display: flex; }
+.iframe-container:-webkit-full-screen .exit-fs-btn { display: flex; }
+
+/* ── NEU: ACCORDION & SCHRITT-KARTEN ────────────── */
+.accordion { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 12px; overflow: hidden; background: var(--surface); }
+.accordion-header { padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; transition: background 0.2s; }
+.accordion-header:hover { background: var(--surface2); }
+.accordion-body { display: none; background: var(--bg); border-top: 1px solid var(--border); }
+.accordion.open .accordion-body { display: block; }
+.accordion-icon { transition: transform 0.2s; font-size: 0.8rem; color: var(--muted); }
+.accordion.open .accordion-icon { transform: rotate(180deg); }
+
+.step-card { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+.step-card:hover { border-color: var(--accent); transform: translateX(4px); }
+.step-number { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); color: var(--muted2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+.step-card.done .step-number { background: var(--correct); color: #fff; }
+
+/* ── DESKTOP: hide mobile elements ─────────────── */
+@media (min-width: 701px) {
+  .mob-header, .mob-main, .bottom-nav { display: none !important; }
+  .navbar, .layout { display: flex !important; }
+}
+
+/* ── MOBILE: show mobile, hide desktop ──────────── */
+@media (max-width: 700px) {
+  .navbar, .layout { display: none !important; }
+  .mob-header { display: flex !important; }
+  .mob-main { display: block !important; }
+  .bottom-nav { display: block !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── DESKTOP NAVBAR ─────────────────────────── -->
+<nav class="navbar">
+  <div class="navbar-brand gradient-text">🚛 Lernplattform Logistik</div>
+  <div class="navbar-nav">
+    <span class="nav-user">
+      <span id="nav-name" style="font-size:0.88rem"></span>
+      <span id="nav-badge"></span>
+    </span>
+    <button class="btn btn-secondary btn-sm" id="btn-logout">Abmelden</button>
+  </div>
+</nav>
+
+<!-- ── DESKTOP LAYOUT ─────────────────────────── -->
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main"></main>
+</div>
+
+<!-- ── MOBILE HEADER ──────────────────────────── -->
+<div class="mob-header">
+  <div class="mob-header-brand gradient-text">🚛 Lernplattform</div>
+  <div class="mob-header-right">
+    <span id="mob-badge"></span>
+    <button class="mob-avatar" id="mob-avatar" title="Abmelden"></button>
+  </div>
+</div>
+
+<!-- ── MOBILE MAIN ────────────────────────────── -->
+<div class="mob-main" id="mob-main"></div>
+
+<!-- ── BOTTOM NAV ─────────────────────────────── -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner" id="bottom-nav"></div>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let USER = null, PROFILE = null;
+const isMobile = () => window.innerWidth <= 700;
+
+// ── INIT ─────────────────────────────────────────
+db.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) return window.location.href = 'index.html';
+  USER = session.user;
+  const { data } = await db.from('profiles').select('*').eq('id', USER.id).maybeSingle();
+  PROFILE = data;
+  if (!PROFILE) return window.location.href = 'index.html';
+
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+  const isAdmin = PROFILE.role === 'admin';
+  const roleColors = { admin:'badge-admin', mod:'badge-mod', user:'badge-user' };
+  const initials = PROFILE.username.substring(0,2).toUpperCase();
+
+  // Desktop navbar
+  document.getElementById('nav-name').textContent = PROFILE.username;
+  document.getElementById('nav-badge').innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
+
+  // Mobile header
+  document.getElementById('mob-badge').innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
+  document.getElementById('mob-avatar').textContent = initials;
+  document.getElementById('mob-avatar').onclick = () => {
+    if (confirm('Abmelden?')) { db.auth.signOut(); window.location.href = 'index.html'; }
+  };
+
+  buildSidebar();
+  buildBottomNav();
+  showHome();
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await db.auth.signOut();
+  window.location.href = 'index.html';
+});
+
+// ── DESKTOP SIDEBAR ───────────────────────────────
+function buildSidebar() {
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+  const isAdmin = PROFILE.role === 'admin';
+  document.getElementById('sidebar').innerHTML = `
+    <div class="sidebar-title">Navigation</div>
+    <button class="sidebar-link active" id="lnk-home" onclick="showHome()"><span class="sidebar-icon">🏠</span>Dashboard</button>
+    <button class="sidebar-link" id="lnk-lf" onclick="showLernfelder()"><span class="sidebar-icon">📚</span>Lernfelder</button>
+    <button class="sidebar-link" id="lnk-fp" onclick="showFortschritt()"><span class="sidebar-icon">📊</span>Mein Fortschritt</button>
+    ${isMod ? `<div class="sidebar-title" style="margin-top:12px">Verwaltung</div>
+    <button class="sidebar-link" id="lnk-inhalte" onclick="showInhalte()"><span class="sidebar-icon">✏️</span>Inhalte bearbeiten</button>` : ''}
+    ${isAdmin ? `<button class="sidebar-link" id="lnk-admin" onclick="showAdmin()"><span class="sidebar-icon">⚙️</span>Admin Panel</button>` : ''}
+  `;
+}
+
+// ── MOBILE BOTTOM NAV ─────────────────────────────
+function buildBottomNav() {
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+  const isAdmin = PROFILE.role === 'admin';
+  const items = [
+    { id:'bn-home', icon:'🏠', label:'Start', fn:'showHome()' },
+    { id:'bn-lf', icon:'📚', label:'Lernen', fn:'showLernfelder()' },
+    { id:'bn-fp', icon:'📊', label:'Fortschritt', fn:'showFortschritt()' },
+    ...(isMod ? [{ id:'bn-inhalte', icon:'✏️', label:'Inhalte', fn:'showInhalte()' }] : []),
+    ...(isAdmin ? [{ id:'bn-admin', icon:'⚙️', label:'Admin', fn:'showAdmin()' }] : []),
+  ];
+  document.getElementById('bottom-nav').innerHTML = items.map(i => `
+    <button class="bn-item" id="${i.id}" onclick="${i.fn}">
+      <span class="bn-icon">${i.icon}</span>
+      <span>${i.label}</span>
+    </button>
+  `).join('');
+}
+
+function setActive(desktopId, mobileId) {
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.bn-item').forEach(l => l.classList.remove('active'));
+  if (desktopId) { const el = document.getElementById(desktopId); if (el) el.classList.add('active'); }
+  if (mobileId) { const el = document.getElementById(mobileId); if (el) el.classList.add('active'); }
+}
+
+function setDesktop(html) { document.getElementById('main').innerHTML = html; }
+function setMobile(html) { document.getElementById('mob-main').innerHTML = html; }
+
+// ── LF CARD HELPERS ───────────────────────────────
+function lfCard(lf, isMod) {
+  const locked = !lf.freigeschaltet && !isMod;
+  return `
+    <div class="lf-card ${locked ? 'lf-locked' : ''}" ${!locked ? `onclick="showLernfeldDetail(${lf.id})"` : ''}>
+      <div class="lf-card-icon">${lf.icon}</div>
+      <div class="lf-card-num">LF ${lf.nummer}</div>
+      <div class="lf-card-name">${lf.name}</div>
+      <div class="lf-card-desc">${lf.beschreibung||''}</div>
+      ${!lf.freigeschaltet && isMod ? '<div style="margin-top:8px;font-size:0.75rem;color:var(--warning)">🔒 Gesperrt</div>' : ''}
+    </div>
+  `;
+}
+
+function mobLfCard(lf, isMod) {
+  const locked = !lf.freigeschaltet && !isMod;
+  return `
+    <div class="mob-lf-card ${locked ? 'locked' : ''}" ${!locked ? `onclick="showLernfeldDetail(${lf.id})"` : ''}>
+      <div class="mob-lf-icon-wrap">${lf.icon}</div>
+      <div class="mob-lf-info">
+        <div class="mob-lf-num">LF ${lf.nummer}${!lf.freigeschaltet && isMod ? ' · 🔒 Gesperrt' : ''}</div>
+        <div class="mob-lf-name">${lf.name}</div>
+        <div class="mob-lf-bar"><div class="mob-lf-bar-fill" style="width:0%"></div></div>
+      </div>
+      ${!locked ? '<div class="mob-lf-arrow">›</div>' : '<div class="mob-lf-arrow">🔒</div>'}
+    </div>
+  `;
+}
+
+// ── HOME ─────────────────────────────────────────
+async function showHome() {
+  setActive('lnk-home', 'bn-home');
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+
+  const [{ count: lfCount }, { count: inhCount }, { count: fpCount }] = await Promise.all([
+    db.from('lernfelder').select('*', { count:'exact', head:true }),
+    db.from('inhalte').select('*', { count:'exact', head:true }),
+    db.from('fortschritt').select('*', { count:'exact', head:true }).eq('user_id', USER.id).eq('abgeschlossen', true),
+  ]);
+  const { data: lernfelder } = await db.from('lernfelder').select('*, lernbereiche(name)').order('nummer').limit(6);
+
+  setDesktop(`
+    <h1 style="margin-bottom:4px">Hallo, <span class="gradient-text">${PROFILE.username}</span> 👋</h1>
+    <p style="color:var(--muted2);margin-bottom:28px">Was lernst du heute?</p>
+    <div class="grid-3" style="margin-bottom:28px">
+      <div class="stat-card"><div class="stat-value gradient-text">${lfCount||0}</div><div class="stat-label">📚 Lernfelder</div></div>
+      <div class="stat-card"><div class="stat-value gradient-text">${inhCount||0}</div><div class="stat-label">📄 Inhalte</div></div>
+      <div class="stat-card"><div class="stat-value gradient-text">${fpCount||0}</div><div class="stat-label">✅ Erledigt</div></div>
+    </div>
+    <h2 style="margin-bottom:14px">Schnellzugriff</h2>
+    <div class="grid-2">
+      ${(lernfelder||[]).map(lf => lfCard(lf, isMod)).join('') || '<p style="color:var(--muted2)">Keine Lernfelder verfügbar.</p>'}
+    </div>
+  `);
+
+  setMobile(`
+    <div class="mob-greeting">Hallo, <span class="gradient-text">${PROFILE.username}</span> 👋</div>
+    <div class="mob-greeting-sub">Was lernst du heute?</div>
+    <div class="mob-stats">
+      <div class="mob-stat"><div class="mob-stat-val gradient-text">${lfCount||0}</div><div class="mob-stat-lbl">📚 Lernfelder</div></div>
+      <div class="mob-stat"><div class="mob-stat-val gradient-text">${fpCount||0}</div><div class="mob-stat-lbl">✅ Erledigt</div></div>
+    </div>
+    <div class="mob-section">Lernfelder</div>
+    ${(lernfelder||[]).map(lf => mobLfCard(lf, isMod)).join('') || '<p style="color:var(--muted2)">Keine Lernfelder verfügbar.</p>'}
+  `);
+}
+
+// ── LERNFELDER ────────────────────────────────────
+async function showLernfelder() {
+  setActive('lnk-lf', 'bn-lf');
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+  setDesktop('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+  setMobile('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+
+  const { data: bereiche } = await db.from('lernbereiche').select('*, lernfelder(*)').order('reihenfolge');
+
+  setDesktop(`
+    <h1 style="margin-bottom:6px">Lernfelder</h1>
+    <p style="color:var(--muted2);margin-bottom:24px">LF 1 bis LF 12</p>
+    ${(bereiche||[]).map(b => `
+      <div style="margin-bottom:28px">
+        <h2 style="margin-bottom:4px">${b.icon} ${b.name}</h2>
+        <p style="color:var(--muted2);font-size:0.83rem;margin-bottom:14px">${b.beschreibung||''}</p>
+        <div class="grid-3">${(b.lernfelder||[]).sort((a,z)=>a.nummer-z.nummer).map(lf=>lfCard(lf,isMod)).join('')}</div>
+      </div>
+    `).join('')}
+  `);
+
+  setMobile(`
+    <div class="mob-greeting" style="font-size:1.1rem">📚 Lernfelder</div>
+    <div class="mob-greeting-sub">LF 1 bis LF 12</div>
+    ${(bereiche||[]).map(b => `
+      <div class="mob-section" style="margin-top:16px">${b.icon} ${b.name}</div>
+      ${(b.lernfelder||[]).sort((a,z)=>a.nummer-z.nummer).map(lf=>mobLfCard(lf,isMod)).join('')}
+    `).join('')}
+  `);
+}
+
+// ── LERNFELD DETAIL ───────────────────────────────
+async function showLernfeldDetail(lfId) {
+  setDesktop('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+  setMobile('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+
+  const { data: lf } = await db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle();
+  if (!lf || (!lf.freigeschaltet && !isMod)) return showLernfelder();
+
+  // NEU: Wir laden gleichzeitig auch deinen Fortschritt, um erledigte Inhalte abzuhaken
+  const [{ data: inhalte }, { data: progress }] = await Promise.all([
+    db.from('inhalte').select('*').eq('lernfeld_id', lfId).order('reihenfolge'),
+    db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
+  ]);
+  const doneIds = (progress || []).map(p => p.inhalt_id);
+  
+  const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥', html:'🌐' };
+
+  // NEU: Schritt-Karten-Design (Desktop)
+  const inhalteDesktop = inhalte && inhalte.length ? inhalte.map((i, idx) => {
+    const isDone = doneIds.includes(i.id);
+    return `
+    <div class="step-card ${isDone ? 'done' : ''}" onclick="showInhalt(${i.id},${lfId})">
+      <div class="step-number">${isDone ? '✓' : (idx + 1)}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:1.05rem;margin-bottom:2px">${i.titel}</div>
+        <div style="font-size:0.8rem;color:var(--muted2);text-transform:capitalize">
+          <span style="margin-right:6px">${typeIcon[i.typ]||'📄'}</span> ${i.typ}
+        </div>
+      </div>
+      <div style="color:var(--accent);font-size:1.2rem">→</div>
+    </div>
+  `}).join('') : `<div class="alert alert-info">Noch keine Inhalte für dieses Lernfeld.</div>`;
+
+  // NEU: Schritt-Karten-Design (Mobile)
+  const inhalteMobile = inhalte && inhalte.length ? inhalte.map((i, idx) => {
+    const isDone = doneIds.includes(i.id);
+    return `
+    <div class="step-card ${isDone ? 'done' : ''}" style="padding:12px; gap:12px; margin-bottom:8px" onclick="showInhalt(${i.id},${lfId})">
+      <div class="step-number" style="width:28px;height:28px;font-size:0.75rem">${isDone ? '✓' : (idx + 1)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.titel}</div>
+        <div style="font-size:0.75rem;color:var(--muted2);text-transform:capitalize;margin-top:2px">${typeIcon[i.typ]||'📄'} ${i.typ}</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  `}).join('') : `<div class="alert alert-info">Noch keine Inhalte.</div>`;
+
+  const headerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <span style="font-size:2rem">${lf.icon}</span>
+      <div>
+        <div style="font-size:0.72rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px">
+          LF ${lf.nummer} · ${lf.lernbereiche?.name}${!lf.freigeschaltet?'  🔒':''}
+        </div>
+        <h1>${lf.name}</h1>
+      </div>
+    </div>
+    <p style="color:var(--muted2);margin-bottom:24px">${lf.beschreibung||''}</p>
+  `;
+
+  setDesktop(`
+    <button class="btn btn-secondary btn-sm" onclick="showLernfelder()" style="margin-bottom:20px">← Zurück</button>
+    ${headerHTML}${inhalteDesktop}
+  `);
+
+  setMobile(`
+    <button class="mob-back" onclick="showLernfelder()">← Zurück</button>
+    <div style="font-size:0.72rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">LF ${lf.nummer}</div>
+    <div style="font-size:1.1rem;font-weight:700;margin-bottom:4px">${lf.name}</div>
+    <div style="font-size:0.83rem;color:var(--muted2);margin-bottom:20px">${lf.beschreibung||''}</div>
+    <div class="mob-section">Inhalte</div>
+    ${inhalteMobile}
+  `);
+}
+
+// ── INHALT ANZEIGEN ───────────────────────────────
+async function showInhalt(inhaltId, lfId) {
+  const { data: i } = await db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle();
+  
+  let contentDisplay = '';
+  if (i.typ === 'html') {
+    const filePath = i.inhalt?.text || '';
+    contentDisplay = `
+      <div style="margin-bottom:12px;display:flex;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" onclick="const e=document.getElementById('fs-wrapper'); e.requestFullscreen ? e.requestFullscreen() : e.webkitRequestFullscreen ? e.webkitRequestFullscreen() : alert('Vollbild auf diesem Gerät nicht unterstützt')">🔲 Vollbild starten</button>
+      </div>
+      <div class="iframe-container" id="fs-wrapper">
+        <button class="btn btn-danger exit-fs-btn" onclick="document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen ? document.webkitExitFullscreen() : null">✖ Vollbild beenden</button>
+        <iframe id="content-iframe" src="${filePath}" title="${i.titel}"></iframe>
+      </div>
+    `;
+  } else {
+    const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    contentDisplay = `<div class="card"><div class="content-text" style="font-size:0.92rem;line-height:1.7">${html}</div></div>`;
+  }
+
+  const backBtn = `← LF ${i.lernfelder.nummer}`;
+
+  setDesktop(`
+    <button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${i.lernfelder.id})" style="margin-bottom:20px">${backBtn}</button>
+    <h1 style="margin-bottom:20px">${i.titel}</h1>
+    ${contentDisplay}
+    <div style="margin-top:16px">
+      <button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
+    </div>
+  `);
+
+  setMobile(`
+    <button class="mob-back" onclick="showLernfeldDetail(${i.lernfelder.id})">${backBtn}</button>
+    <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${i.titel}</div>
+    <div style="margin-bottom:16px">${contentDisplay}</div>
+    <button class="btn btn-success btn-full" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
+  `);
+}
+
+async function markDone(inhaltId, lfId) {
+  await db.from('fortschritt').upsert({ user_id:USER.id, inhalt_id:inhaltId, abgeschlossen:true, completed_at:new Date().toISOString() });
+  showLernfeldDetail(lfId);
+}
+
+// ── FORTSCHRITT ───────────────────────────────────
+async function showFortschritt() {
+  setActive('lnk-fp', 'bn-fp');
+  const { data: fp } = await db.from('fortschritt')
+    .select('*, inhalte(titel, typ, lernfelder(nummer, name))')
+    .eq('user_id', USER.id).eq('abgeschlossen', true);
+
+  const leer = '<div class="alert alert-info">Noch nichts abgeschlossen. Leg los! 💪</div>';
+
+  setDesktop(`
+    <h1 style="margin-bottom:24px">Mein Fortschritt</h1>
+    ${fp && fp.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Lernfeld</th><th>Inhalt</th><th>Typ</th><th>Abgeschlossen</th></tr></thead>
+      <tbody>${fp.map(f=>`<tr>
+        <td>LF ${f.inhalte?.lernfelder?.nummer}: ${f.inhalte?.lernfelder?.name}</td>
+        <td>${f.inhalte?.titel}</td>
+        <td style="text-transform:capitalize">${f.inhalte?.typ}</td>
+        <td style="color:var(--correct)">✅ ${new Date(f.completed_at).toLocaleDateString('de-DE')}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>` : leer}
+  `);
+
+  setMobile(`
+    <div class="mob-greeting" style="font-size:1.1rem">📊 Mein Fortschritt</div>
+    <div class="mob-greeting-sub" style="margin-bottom:20px">${fp?.length||0} Inhalte abgeschlossen</div>
+    ${fp && fp.length ? fp.map(f=>`
+      <div class="mob-lf-card" style="cursor:default">
+        <div class="mob-lf-icon-wrap" style="font-size:1rem">✅</div>
+        <div class="mob-lf-info">
+          <div class="mob-lf-num">LF ${f.inhalte?.lernfelder?.nummer}</div>
+          <div class="mob-lf-name">${f.inhalte?.titel}</div>
+          <div style="font-size:0.72rem;color:var(--muted2);margin-top:3px">${new Date(f.completed_at).toLocaleDateString('de-DE')}</div>
+        </div>
+      </div>
+    `).join('') : leer}
+  `);
+}
+
+// ── INHALTE (MOD+) ────────────────────────────────
+async function showInhalte() {
+  setActive('lnk-inhalte', 'bn-inhalte');
+  const { data: lernfelder } = await db.from('lernfelder').select('id, nummer, name').order('nummer');
+  const { data: inhalte } = await db.from('inhalte').select('*, lernfelder(nummer, name)').order('lernfeld_id').order('reihenfolge');
+  window._lf = lernfelder;
+
+  // NEU: Inhalte nach Lernfeld sortieren/gruppieren
+  const lfMap = {};
+  (lernfelder||[]).forEach(lf => lfMap[lf.id] = { ...lf, inhalte: [] });
+  (inhalte||[]).forEach(i => { if (lfMap[i.lernfeld_id]) lfMap[i.lernfeld_id].inhalte.push(i); });
+
+  // Akkordeons für Desktop
+  const desktopAccordions = Object.values(lfMap).map(lf => {
+    const rows = lf.inhalte.map(i => `<tr>
+      <td style="width:60%"><strong>${i.titel}</strong></td>
+      <td style="text-transform:capitalize">${i.typ}</td>
+      <td style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" title="Ansehen" onclick="showInhalt(${i.id},${lf.id})">👁</button>
+        <button class="btn btn-secondary btn-sm" title="Bearbeiten" onclick="editInhalt(${i.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" title="Löschen" onclick="deleteInhalt(${i.id})">🗑</button>
+      </td>
+    </tr>`).join('');
+
+    return `
+      <div class="accordion" id="acc-${lf.id}">
+        <div class="accordion-header" onclick="toggleAcc(${lf.id})">
+          <div>LF ${lf.nummer}: ${lf.name} <span class="badge" style="margin-left:10px;background:var(--surface2);color:var(--muted)">${lf.inhalte.length} Inhalte</span></div>
+          <div class="accordion-icon">▼</div>
+        </div>
+        <div class="accordion-body">
+          ${lf.inhalte.length ? `
+            <table style="margin:0; width:100%; border:none;">
+              <tbody style="border:none;">${rows}</tbody>
+            </table>
+          ` : '<div style="padding:16px;color:var(--muted2);font-size:0.85rem">Noch keine Inhalte hinzugefügt.</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Akkordeons für Mobile
+  const mobileAccordions = Object.values(lfMap).map(lf => {
+    const cards = lf.inhalte.map(i => `
+      <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.9rem">${i.titel}</div>
+          <div style="font-size:0.75rem;color:var(--muted2);text-transform:capitalize;margin-top:2px">${i.typ}</div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="editInhaltMob(${i.id})">✏️</button>
+          <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="deleteInhalt(${i.id})">🗑</button>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="accordion" id="mob-acc-${lf.id}">
+        <div class="accordion-header" style="padding:14px;font-size:0.9rem" onclick="toggleMobAcc(${lf.id})">
+          <div>LF ${lf.nummer} <span style="opacity:0.5">· ${lf.inhalte.length}</span></div>
+          <div class="accordion-icon">▼</div>
+        </div>
+        <div class="accordion-body">
+          ${lf.inhalte.length ? cards : '<div style="padding:12px 14px;color:var(--muted2);font-size:0.8rem">Leer</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  setDesktop(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+      <h1>Inhalte verwalten</h1>
+      <button class="btn btn-primary" onclick="showContentForm()">+ Inhalt hinzufügen</button>
+    </div>
+    <div id="add-form"></div>
+    <div>${desktopAccordions}</div>
+  `);
+
+  setMobile(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="mob-greeting" style="font-size:1.1rem">✏️ Inhalte</div>
+      <button class="btn btn-primary btn-sm" onclick="showContentFormMob()">+ Neu</button>
+    </div>
+    <div id="mob-add-form"></div>
+    <div>${mobileAccordions}</div>
+  `);
+}
+
+// Hilfsfunktionen um die Akkordeons aufzuklappen
+function toggleAcc(id) { document.getElementById('acc-'+id).classList.toggle('open'); }
+function toggleMobAcc(id) { document.getElementById('mob-acc-'+id).classList.toggle('open'); }
+
+// NEU: Inhalt abrufen für den Edit-Modus
+async function editInhalt(id) {
+  const { data } = await db.from('inhalte').select('*').eq('id', id).maybeSingle();
+  if(data) { toggleAcc(data.lernfeld_id); showContentForm(data); }
+}
+async function editInhaltMob(id) {
+  const { data } = await db.from('inhalte').select('*').eq('id', id).maybeSingle();
+  if(data) { toggleMobAcc(data.lernfeld_id); showContentFormMob(data); }
+}
+
+// KOMBINIERT: Formular für Neu & Bearbeiten (Desktop)
+function showContentForm(inhalt = null) {
+  const lf = window._lf || [];
+  const isEdit = !!inhalt;
+  const title = isEdit ? '✏️ Inhalt bearbeiten' : 'Neuen Inhalt hinzufügen';
+  const action = isEdit ? `saveInhalt(true, ${inhalt.id}, 'add-form', 'new-lf', 'new-typ', 'new-titel', 'new-text')` : `saveInhalt(false, null, 'add-form', 'new-lf', 'new-typ', 'new-titel', 'new-text')`;
+
+  // HTML als Standardauswahl gesetzt
+  const typVal = isEdit ? inhalt.typ : 'html';
+  const textVal = isEdit ? (inhalt.inhalt?.text || '') : '';
+  const titelVal = isEdit ? inhalt.titel : '';
+  const lfVal = isEdit ? inhalt.lernfeld_id : (lf[0]?.id || '');
+
+  document.getElementById('add-form').innerHTML = `
+    <div class="card" style="margin-bottom:20px; ${isEdit ? 'border-color:var(--accent)' : ''}">
+      <h3 style="margin-bottom:16px; ${isEdit ? 'color:var(--accent)' : ''}">${title}</h3>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Lernfeld</label>
+          <select class="form-input" id="new-lf">
+            ${lf.map(l=>`<option value="${l.id}" ${l.id == lfVal ? 'selected' : ''}>LF ${l.nummer}: ${l.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Typ</label>
+          <select class="form-input" id="new-typ" onchange="updateTextareaLabel('new-typ', 'label-new-text', 'new-text')">
+            <option value="html" ${typVal === 'html' ? 'selected' : ''}>🌐 Externe HTML-Datei</option>
+            <option value="text" ${typVal === 'text' ? 'selected' : ''}>📄 Text / Zusammenfassung</option>
+            <option value="quiz" ${typVal === 'quiz' ? 'selected' : ''}>❓ Quiz</option>
+            <option value="lernkarten" ${typVal === 'lernkarten' ? 'selected' : ''}>🃏 Lernkarten</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input class="form-input" type="text" id="new-titel" value="${titelVal}" placeholder="z.B. Materialfluss – Grundlagen">
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="label-new-text">Dateipfad zur HTML-Datei</label>
+        <textarea class="form-input" id="new-text" rows="2" placeholder="z.B. lernfelder/4/1_materialfluss.html">${textVal}</textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="${action}">💾 ${isEdit ? 'Änderungen speichern' : 'Speichern'}</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('add-form').innerHTML=''">Abbrechen</button>
+      </div>
+      <div id="save-msg" style="margin-top:12px"></div>
+    </div>
+  `;
+  updateTextareaLabel('new-typ', 'label-new-text', 'new-text');
+}
+
+// KOMBINIERT: Formular für Neu & Bearbeiten (Mobile)
+function showContentFormMob(inhalt = null) {
+  const lf = window._lf || [];
+  const isEdit = !!inhalt;
+  const title = isEdit ? '✏️ Bearbeiten' : 'Neuen Inhalt';
+  const action = isEdit ? `saveInhalt(true, ${inhalt.id}, 'mob-add-form', 'mob-new-lf', 'mob-new-typ', 'mob-new-titel', 'mob-new-text')` : `saveInhalt(false, null, 'mob-add-form', 'mob-new-lf', 'mob-new-typ', 'mob-new-titel', 'mob-new-text')`;
+
+  const typVal = isEdit ? inhalt.typ : 'html';
+  const textVal = isEdit ? (inhalt.inhalt?.text || '') : '';
+  const titelVal = isEdit ? inhalt.titel : '';
+  const lfVal = isEdit ? inhalt.lernfeld_id : (lf[0]?.id || '');
+
+  document.getElementById('mob-add-form').innerHTML = `
+    <div class="card" style="margin-bottom:16px; ${isEdit ? 'border-color:var(--accent)' : ''}">
+      <h3 style="margin-bottom:14px;font-size:1rem; ${isEdit ? 'color:var(--accent)' : ''}">${title}</h3>
+      <div class="form-group">
+        <label class="form-label">Lernfeld</label>
+        <select class="form-input" id="mob-new-lf">
+          ${lf.map(l=>`<option value="${l.id}" ${l.id == lfVal ? 'selected' : ''}>LF ${l.nummer}: ${l.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Typ</label>
+        <select class="form-input" id="mob-new-typ" onchange="updateTextareaLabel('mob-new-typ', 'mob-label-new-text', 'mob-new-text')">
+          <option value="html" ${typVal === 'html' ? 'selected' : ''}>🌐 HTML</option>
+          <option value="text" ${typVal === 'text' ? 'selected' : ''}>📄 Text</option>
+          <option value="quiz" ${typVal === 'quiz' ? 'selected' : ''}>❓ Quiz</option>
+          <option value="lernkarten" ${typVal === 'lernkarten' ? 'selected' : ''}>🃏 Karten</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input class="form-input" type="text" id="mob-new-titel" value="${titelVal}" placeholder="Titel des Inhalts">
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="mob-label-new-text">Dateipfad zur HTML-Datei</label>
+        <textarea class="form-input" id="mob-new-text" rows="2" placeholder="z.B. lernfelder/4/1_materialfluss.html">${textVal}</textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1" onclick="${action}">💾 Speichern</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('mob-add-form').innerHTML=''">✕</button>
+      </div>
+      <div id="mob-save-msg" style="margin-top:10px"></div>
+    </div>
+  `;
+  updateTextareaLabel('mob-new-typ', 'mob-label-new-text', 'mob-new-text');
+}
+
+function updateTextareaLabel(typId, labelId, textId) {
+  const typ = document.getElementById(typId).value;
+  const label = document.getElementById(labelId);
+  const textarea = document.getElementById(textId);
+  if (typ === 'html') {
+    label.innerText = 'Dateipfad zur HTML-Datei';
+    textarea.placeholder = 'z.B. lernfelder/4/1_materialfluss.html';
+    textarea.rows = 2;
+  } else {
+    label.innerText = 'Inhalt (**fett** für wichtige Begriffe)';
+    textarea.placeholder = 'Schreibe hier den Lerninhalt...';
+    textarea.rows = 6;
+  }
+}
+
+// Angepasste Speichern-Funktion für Neu und Update
+async function saveInhalt(isEdit, inhaltId, formId, lfElId, typElId, titelElId, textElId) {
+  const lfId = document.getElementById(lfElId)?.value;
+  const typ = typElId ? document.getElementById(typElId)?.value : 'html';
+  const titel = document.getElementById(titelElId)?.value.trim();
+  const text = document.getElementById(textElId)?.value.trim();
+  const msgId = formId === 'add-form' ? 'save-msg' : 'mob-save-msg';
+
+  if (!titel || !text) return document.getElementById(msgId).innerHTML = '<div class="alert alert-error">Bitte Titel und Inhalt ausfüllen.</div>';
+
+  let error;
+  if (isEdit) {
+    const res = await db.from('inhalte').update({ lernfeld_id:lfId, typ, titel, inhalt:{ text } }).eq('id', inhaltId);
+    error = res.error;
+  } else {
+    const res = await db.from('inhalte').insert({ lernfeld_id:lfId, typ, titel, inhalt:{ text }, erstellt_von:USER.id });
+    error = res.error;
+  }
+
+  if (error) return document.getElementById(msgId).innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+  showInhalte(); // Lädt die Liste neu
+}
+
+async function deleteInhalt(id) {
+  if (!confirm('Inhalt wirklich löschen?')) return;
+  await db.from('inhalte').delete().eq('id', id);
+  showInhalte();
+}
+
+// ── ADMIN PANEL ───────────────────────────────────
+async function showAdmin() {
+  setActive('lnk-admin', 'bn-admin');
+  setDesktop('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+  setMobile('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+
+  // Lade alle benötigten Daten auf einmal
+  const [
+    { data: users }, 
+    { data: lernfelder }, 
+    { count: uCount }, 
+    { count: iCount },
+    { data: allProgress },
+    { data: allInhalte }
+  ] = await Promise.all([
+    db.from('profiles').select('*').order('created_at', { ascending:false }),
+    db.from('lernfelder').select('id, nummer, name, freigeschaltet').order('nummer'),
+    db.from('profiles').select('*', { count:'exact', head:true }),
+    db.from('inhalte').select('*', { count:'exact', head:true }),
+    db.from('fortschritt').select('user_id, inhalt_id, inhalte(lernfeld_id)').eq('abgeschlossen', true), // Erledigte
+    db.from('inhalte').select('id, lernfeld_id') // Um zu wissen wie viele es insgesamt gibt
+  ]);
+
+  // 1. Zählen wie viele Inhalte jedes Lernfeld gesamt hat
+  const lfTotals = {};
+  (allInhalte || []).forEach(i => {
+    lfTotals[i.lernfeld_id] = (lfTotals[i.lernfeld_id] || 0) + 1;
+  });
+
+  // 2. Zählen wie viele Inhalte jeder User pro Lernfeld erledigt hat
+  const userStats = {}; // Struktur: { "userId": { "lfId": 3 } }
+  (allProgress || []).forEach(p => {
+    const lfId = p.inhalte?.lernfeld_id;
+    if (lfId) {
+      if (!userStats[p.user_id]) userStats[p.user_id] = {};
+      userStats[p.user_id][lfId] = (userStats[p.user_id][lfId] || 0) + 1;
+    }
+  });
+
+  // 3. HTML für Statistiken generieren
+  let statsHTML = '';
+  (users || []).forEach(u => {
+    const uStats = userStats[u.id] || {};
+    let hasStartedSomething = false;
+    
+    const lfRows = (lernfelder || []).map(lf => {
+      const total = lfTotals[lf.id] || 0;
+      const done = uStats[lf.id] || 0;
+      
+      // Nur anzeigen, wenn das Lernfeld Inhalte hat und der User was darin gemacht hat
+      if (total === 0 || done === 0) return ''; 
+      hasStartedSomething = true;
+      
+      const prozent = Math.round((done / total) * 100);
+      const isSuccess = prozent === 100;
+      const statusColor = isSuccess ? 'var(--correct)' : 'var(--warning)';
+      const statusText = isSuccess ? '✅ Abgeschlossen' : '⏳ In Bearbeitung / Misserfolg';
+      
+      return `
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:0.88rem;">
+          <div>
+            <div style="font-weight:600">LF ${lf.nummer}: ${lf.name}</div>
+            <div style="font-size:0.75rem; color:var(--muted2); margin-top:2px;">${statusText}</div>
+          </div>
+          <div style="text-align:right">
+            <span style="color:${statusColor}; font-weight:700;">${done} / ${total} erledigt</span>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${prozent}%</div>
+          </div>
+        </div>
+      `;
+    }).filter(r => r !== '').join('');
+
+    if (hasStartedSomething) {
+      statsHTML += `
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="font-size:1.05rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            👤 ${u.username} <span class="badge badge-${u.role}">${u.role}</span>
+          </h3>
+          ${lfRows}
+        </div>
+      `;
+    }
+  });
+
+  if (!statsHTML) {
+    statsHTML = '<div class="alert alert-info">Es wurden noch keine Lerninhalte bearbeitet.</div>';
+  }
+
+  // Admin Panel Basis (wie vorher)
+  const lfToggles = (lernfelder||[]).map(lf => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600;font-size:0.9rem">LF ${lf.nummer}: ${lf.name}</div>
+        <div style="font-size:0.75rem;color:${lf.freigeschaltet?'var(--correct)':'var(--warning)'};margin-top:2px">
+          ${lf.freigeschaltet ? '✅ Freigeschaltet' : '🔒 Gesperrt'}
+        </div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" ${lf.freigeschaltet?'checked':''} onchange="toggleLF(${lf.id}, this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  `).join('');
+
+  const userRows = (users||[]).map(u => `
+    <tr>
+      <td><strong>${u.username}</strong></td>
+      <td><span class="badge badge-${u.role}">${u.role}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString('de-DE')}</td>
+      <td>
+        <select class="form-input" style="padding:4px 8px;font-size:0.8rem;width:auto"
+          onchange="changeRole('${u.id}', this.value)"
+          ${u.id===USER.id?'disabled title="Eigene Rolle nicht änderbar"':''}>
+          <option value="user" ${u.role==='user'?'selected':''}>User</option>
+          <option value="mod" ${u.role==='mod'?'selected':''}>Mod</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        </select>
+      </td>
+    </tr>
+  `).join('');
+
+  const mobUserCards = (users||[]).map(u=>`
+    <div class="mob-lf-card" style="cursor:default;margin-bottom:8px">
+      <div class="mob-lf-icon-wrap" style="font-size:1rem;font-weight:700;color:var(--accent);background:var(--surface2)">
+        ${u.username.substring(0,2).toUpperCase()}
+      </div>
+      <div class="mob-lf-info">
+        <div style="font-weight:600">${u.username}</div>
+        <span class="badge badge-${u.role}">${u.role}</span>
+      </div>
+      <select class="form-input" style="padding:4px 6px;font-size:0.78rem;width:72px"
+        onchange="changeRole('${u.id}', this.value)"
+        ${u.id===USER.id?'disabled':''}>
+        <option value="user" ${u.role==='user'?'selected':''}>User</option>
+        <option value="mod" ${u.role==='mod'?'selected':''}>Mod</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      </select>
+    </div>
+  `).join('');
+
+  setDesktop(`
+    <h1 style="margin-bottom:24px">⚙️ Admin Panel</h1>
+    <div class="grid-3" style="margin-bottom:32px">
+      <div class="stat-card"><div class="stat-value gradient-text">${uCount||0}</div><div class="stat-label">👥 Benutzer</div></div>
+      <div class="stat-card"><div class="stat-value gradient-text">${lernfelder?.length||0}</div><div class="stat-label">📚 Lernfelder</div></div>
+      <div class="stat-card"><div class="stat-value gradient-text">${iCount||0}</div><div class="stat-label">📄 Inhalte</div></div>
+    </div>
+    
+    <h2 style="margin-bottom:16px">📊 Detaillierte Nutzer-Statistiken</h2>
+    <div style="margin-bottom:32px">
+      ${statsHTML}
+    </div>
+
+    <h2 style="margin-bottom:6px">🔓 Lernfelder freischalten</h2>
+    <p style="color:var(--muted2);font-size:0.85rem;margin-bottom:16px">Gesperrte Lernfelder sind nur für Admins und Mods sichtbar.</p>
+    <div class="card" style="margin-bottom:32px">${lfToggles}</div>
+    
+    <h2 style="margin-bottom:16px">👥 Benutzerverwaltung</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Vorname</th><th>Rolle</th><th>Registriert</th><th>Rolle ändern</th></tr></thead>
+      <tbody>${userRows}</tbody>
+    </table></div>
+    <div id="role-msg" style="margin-top:12px"></div>
+  `);
+
+  setMobile(`
+    <div class="mob-greeting" style="font-size:1.1rem">⚙️ Admin Panel</div>
+    <div class="mob-stats" style="margin-bottom:20px">
+      <div class="mob-stat"><div class="mob-stat-val gradient-text">${uCount||0}</div><div class="mob-stat-lbl">👥 Benutzer</div></div>
+      <div class="mob-stat"><div class="mob-stat-val gradient-text">${iCount||0}</div><div class="mob-stat-lbl">📄 Inhalte</div></div>
+    </div>
+    
+    <div class="mob-section">📊 Nutzer-Statistiken</div>
+    <div style="margin-bottom:20px">${statsHTML}</div>
+
+    <div class="mob-section">🔓 Lernfelder freischalten</div>
+    <div class="card" style="margin-bottom:20px">${lfToggles}</div>
+    
+    <div class="mob-section">👥 Benutzer</div>
+    ${mobUserCards}
+    <div id="role-msg" style="margin-top:12px"></div>
+  `);
+}
+
+async function toggleLF(lfId, value) {
+  const { error } = await db.from('lernfelder').update({ freigeschaltet:value }).eq('id', lfId);
+  if (error) alert('Fehler: ' + error.message);
+}
+
+// Besserer Fehler-Dialog bei Rechteproblemen!
+async function changeRole(userId, newRole) {
+  const { error } = await db.from('profiles').update({ role:newRole }).eq('id', userId);
+  
+  if (error) {
+    alert("🚨 FEHLER: Rolle konnte nicht geändert werden!\n\nGrund: Supabase blockiert das Ändern aus Sicherheitsgründen (Row Level Security).\n\nDu musst zuerst in Supabase im 'SQL Editor' die passende Policy erstellen (wie von Gemini beschrieben).");
+    showAdmin(); // Seite neuladen um die Select-Box zurückzusetzen
+  } else {
+    const els = document.querySelectorAll('#role-msg');
+    els.forEach(el => { el.innerHTML = `<div class="alert alert-success">Rolle geändert ✅</div>`; setTimeout(() => el.innerHTML = '', 3000); });
+  }
+}
+</script>
+</body>
+</html>

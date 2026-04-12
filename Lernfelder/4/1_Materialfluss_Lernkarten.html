@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Materialfluss</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 14px 40px; }
+  h1 { font-size: 1.3rem; font-weight: 700; color: #38bdf8; margin-bottom: 3px; text-align: center; }
+  .subtitle { font-size: 0.8rem; color: #94a3b8; margin-bottom: 20px; text-align: center; }
+  .score-box { display: flex; gap: 16px; margin-bottom: 16px; }
+  .score-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot-green { background: #4ade80; } .dot-red { background: #f87171; }
+  .progress-bar { width: 100%; max-width: 500px; background: #1e293b; border-radius: 999px; height: 7px; margin-bottom: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px; transition: width 0.4s ease; }
+  .counter { font-size: 0.75rem; color: #64748b; margin-bottom: 16px; text-align: center; }
+  .question-card { width: 100%; max-width: 500px; background: linear-gradient(135deg, #1e293b, #0f1e35); border: 1px solid #334155; border-radius: 18px; padding: 22px 18px; margin-bottom: 16px; }
+  .question-text { font-size: 1rem; font-weight: 600; line-height: 1.5; text-align: center; }
+  .answers { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .answer-btn { width: 100%; padding: 14px 16px; border: 2px solid #334155; border-radius: 14px; background: #1e293b; color: #f1f5f9; font-size: 0.92rem; font-weight: 500; text-align: left; cursor: pointer; transition: all 0.2s; line-height: 1.4; }
+  .answer-btn:active { transform: scale(0.98); }
+  .answer-btn.correct { background: #14532d; border-color: #4ade80; color: #4ade80; }
+  .answer-btn.wrong { background: #3f1f1f; border-color: #f87171; color: #f87171; }
+  .answer-btn.reveal { background: #1a3a2a; border-color: #4ade80; color: #86efac; }
+  .answer-btn:disabled { cursor: default; }
+  .explanation { width: 100%; max-width: 500px; border-radius: 14px; padding: 14px 16px; font-size: 0.88rem; line-height: 1.5; margin-bottom: 14px; display: none; }
+  .explanation.correct { background: #14532d44; border: 1px solid #4ade8066; color: #86efac; }
+  .explanation.wrong { background: #3f1f1f44; border: 1px solid #f8717166; color: #fca5a5; }
+  .next-btn { width: 100%; max-width: 500px; padding: 15px; border: none; border-radius: 14px; background: linear-gradient(135deg, #38bdf8, #818cf8); color: #0f172a; font-size: 1rem; font-weight: 700; cursor: pointer; display: none; margin-bottom: 10px; }
+  .result-screen { text-align: center; max-width: 500px; width: 100%; display: none; }
+  .result-emoji { font-size: 3rem; margin-bottom: 14px; }
+  .result-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; color: #38bdf8; }
+  .result-sub { color: #94a3b8; margin-bottom: 20px; font-size: 0.9rem; }
+  .result-score { font-size: 2.8rem; font-weight: 800; color: #4ade80; margin-bottom: 24px; }
+  .restart-btn { background: linear-gradient(135deg, #38bdf8, #818cf8); color: #0f172a; padding: 14px 32px; border: none; border-radius: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>🔄 Materialfluss</h1>
+<p class="subtitle">Multiple Choice – Thema 1 von 5</p>
+
+<div id="quiz">
+  <div class="score-box">
+    <div class="score-item"><div class="dot dot-green"></div><span id="correct-count">0 Richtig</span></div>
+    <div class="score-item"><div class="dot dot-red"></div><span id="wrong-count">0 Falsch</span></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <div class="counter" id="counter">Frage 1 von 10</div>
+  <div class="question-card"><div class="question-text" id="question"></div></div>
+  <div class="answers" id="answers"></div>
+  <div class="explanation" id="explanation"></div>
+  <button class="next-btn" id="next-btn" onclick="nextQuestion()">Weiter →</button>
+</div>
+
+<div class="result-screen" id="result">
+  <div class="result-emoji" id="r-emoji">🎉</div>
+  <div class="result-title">Fertig!</div>
+  <div class="result-sub" id="r-sub"></div>
+  <div class="result-score" id="r-score"></div>
+  <button class="restart-btn" onclick="restart()">🔄 Nochmal üben</button>
+</div>
+
+<script>
+const questions = [{"q": "Was beschreibt der Begriff 'Materialfluss'?", "answers": ["Die gezielte Bewegung von Gütern vom Lieferanten bis zum Kunden", "Die Lagerung von Waren in einem Hochregallager", "Die Buchhaltung über Warenbestände", "Der Einkauf von Rohstoffen beim Lieferanten"], "correct": 0, "explanation": "Materialfluss = gezielte Bewegung von Gütern, Materialien und Informationen durch die gesamte Lieferkette, von der Beschaffung bis zur Auslieferung."}, {"q": "Was ist innerbetrieblicher Materialfluss?", "answers": ["Transport zwischen Lieferant und Betrieb per LKW", "Transport von Gütern innerhalb eines Betriebs, z.B. vom Lager zur Produktion", "Export von Fertigwaren ins Ausland", "Die Bestellung von Waren beim Großhändler"], "correct": 1, "explanation": "Innerbetrieblich = innerhalb des Betriebs. Beispiel: Gabelstapler transportiert Paletten vom Eingangslager zur Produktionshalle."}, {"q": "Was ist ein Beispiel für außerbetrieblichen Materialfluss?", "answers": ["Gabelstapler fährt Paletten vom Lager zur Produktion", "Kommissionierer entnimmt Waren aus dem Regal", "Spediteur liefert Ware vom Lieferanten zum Betrieb", "Routenzug versorgt Montagestationen mit Teilen"], "correct": 2, "explanation": "Außerbetrieblich = zwischen verschiedenen Betrieben. Ein Spediteur, der Ware vom Lieferanten zum Unternehmen transportiert, ist ein klassisches Beispiel."}, {"q": "Was kennzeichnet das Holsystem im Materialfluss?", "answers": ["Der Lieferant bringt aktiv Material zum Verbraucher", "Ein Routenzug fährt automatisch alle Stationen ab", "Der Verbraucher holt sich das Material selbst beim Lieferanten", "Das Lager schickt automatisch Nachschub, sobald der Bestand sinkt"], "correct": 2, "explanation": "Beim Holsystem holt der Verbraucher (z.B. Produktion) das Material selbst ab. Typisches Beispiel: Kanban-System, bei dem leere Behälter zurückgebracht und volle geholt werden."}, {"q": "Was kennzeichnet das Bringsystem im Materialfluss?", "answers": ["Der Verbraucher holt Material bei Bedarf selbst ab", "Der Lieferant bringt das Material aktiv zum Verbraucher", "Das Material wird per Förderband automatisch transportiert", "Der Verbraucher bestellt per Kanban-Karte nach"], "correct": 1, "explanation": "Beim Bringsystem liefert der Lieferant (z.B. Lager) das Material aktiv an den Verbraucher (z.B. Produktion). Beispiel: Routenzug, der Stationen zu festen Zeiten anfährt."}, {"q": "Was besagt die 6-R-Regel im Materialfluss?", "answers": ["Richtige Route, richtiges Fahrzeug, richtige Geschwindigkeit, richtiger Fahrer, richtige Lizenz, richtiger Auftrag", "Richtiges Gut, richtige Menge, richtiger Zeitpunkt, richtiger Ort, richtige Qualität, richtige Kosten", "Rückverfolgung, Recycling, Reduktion, Reaktion, Reservierung, Reparatur", "Richtlinie, Regal, Rollenbahn, Routenzug, Roboter, RFID"], "correct": 1, "explanation": "Die 6-R-Regel beschreibt das Ziel des Materialflusses: das richtige Gut, in der richtigen Menge, zum richtigen Zeitpunkt, am richtigen Ort, in der richtigen Qualität und zu den richtigen Kosten."}, {"q": "Welches Ziel verfolgt die Materialflussoptimierung?", "answers": ["Möglichst viele Mitarbeiter im Transport einsetzen", "Lagerbestände maximieren um Engpässe zu vermeiden", "Transportwege und -kosten minimieren sowie Durchlaufzeiten verkürzen", "Alle Transporte auf externe Dienstleister auslagern"], "correct": 2, "explanation": "Materialflussoptimierung zielt darauf ab, Transportwege zu verkürzen, Kosten zu senken, Fehler zu minimieren und Durchlaufzeiten zu reduzieren."}, {"q": "Welche Frage stellt sich NICHT bei der Gestaltung des Materialflusses?", "answers": ["Was soll transportiert werden?", "Mit welchem Transportmittel?", "Welche Farbe hat die Verpackung?", "Wann und in welcher Menge?"], "correct": 2, "explanation": "Bei der Gestaltung des Materialflusses fragt man: Was, Wohin, Wann, Wie viel, Womit und Auf welchem Weg – die Farbe der Verpackung ist dabei irrelevant."}, {"q": "Welches ist ein Vorteil des Holsystems gegenüber dem Bringsystem?", "answers": ["Das Lager muss weniger planen, da der Verbraucher selbst kommt", "Der Transport erfolgt immer pünktlich durch feste Touren", "Kein Materialfluss zwischen Lager und Produktion nötig", "Der Lieferant übernimmt alle Transportkosten"], "correct": 0, "explanation": "Beim Holsystem wird nur dann Material bewegt, wenn es wirklich gebraucht wird. Das reduziert Überproduktion und Lageraufwand – der Verbraucher steuert den Fluss selbst."}, {"q": "Was versteht man unter 'Durchlaufzeit' im Materialfluss?", "answers": ["Die Zeit, die ein Gabelstapler für eine Runde braucht", "Die Zeit, die ein Produkt oder Material vom Eingang bis zum Ausgang durch den Betrieb benötigt", "Die Schichtdauer der Lagerarbeiter", "Die Lieferzeit vom Lieferanten zum Kunden"], "correct": 1, "explanation": "Die Durchlaufzeit misst, wie lange Material oder ein Produkt vom Wareneingang bis zum Warenausgang (oder Versand) im Betrieb unterwegs ist. Kurze Durchlaufzeiten sind ein wichtiges Optimierungsziel."}];
+let shuffled, current = 0, correct = 0, wrong = 0;
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function start() {
+  shuffled = shuffle(questions).map(q => {
+    const indexed = q.answers.map((a, i) => ({text: a, isCorrect: i === q.correct}));
+    const shuffledA = shuffle(indexed);
+    return {...q, shuffledAnswers: shuffledA};
+  });
+  current = 0; correct = 0; wrong = 0;
+  document.getElementById('correct-count').textContent = '0 Richtig';
+  document.getElementById('wrong-count').textContent = '0 Falsch';
+  document.getElementById('quiz').style.display = 'flex';
+  document.getElementById('quiz').style.flexDirection = 'column';
+  document.getElementById('quiz').style.alignItems = 'center';
+  document.getElementById('quiz').style.width = '100%';
+  document.getElementById('result').style.display = 'none';
+  render();
+}
+
+function render() {
+  const q = shuffled[current];
+  document.getElementById('counter').textContent = `Frage ${current+1} von ${shuffled.length}`;
+  document.getElementById('progress').style.width = `${(current/shuffled.length)*100}%`;
+  document.getElementById('question').textContent = q.q;
+  const expl = document.getElementById('explanation');
+  expl.style.display = 'none'; expl.className = 'explanation';
+  document.getElementById('next-btn').style.display = 'none';
+  const container = document.getElementById('answers');
+  container.innerHTML = '';
+  q.shuffledAnswers.forEach((a, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = a.text;
+    btn.onclick = () => answer(a.isCorrect, q.explanation, i);
+    container.appendChild(btn);
+  });
+}
+
+function answer(isCorrect, explanation, chosenIdx) {
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach(b => b.disabled = true);
+  const q = shuffled[current];
+  btns.forEach((b, i) => {
+    if (q.shuffledAnswers[i].isCorrect) b.classList.add(i === chosenIdx ? 'correct' : 'reveal');
+    else if (i === chosenIdx) b.classList.add('wrong');
+  });
+  const expl = document.getElementById('explanation');
+  expl.textContent = (isCorrect ? '✅ ' : '❌ ') + explanation;
+  expl.className = 'explanation ' + (isCorrect ? 'correct' : 'wrong');
+  expl.style.display = 'block';
+  if (isCorrect) { correct++; document.getElementById('correct-count').textContent = correct + ' Richtig'; }
+  else { wrong++; document.getElementById('wrong-count').textContent = wrong + ' Falsch'; }
+  document.getElementById('next-btn').style.display = 'block';
+}
+
+function nextQuestion() {
+  current++;
+  if (current >= shuffled.length) showResult();
+  else render();
+}
+
+function showResult() {
+  document.getElementById('quiz').style.display = 'none';
+  document.getElementById('result').style.display = 'block';
+  const pct = Math.round((correct / shuffled.length) * 100);
+  document.getElementById('r-score').textContent = `${correct} / ${shuffled.length} richtig (${pct}%)`;
+  document.getElementById('r-sub').textContent = pct >= 80 ? 'Stark! Du beherrschst das Thema 💪' : pct >= 50 ? 'Gut! Noch ein bisschen üben 👍' : 'Weitermachen – du schaffst das! 📚';
+  document.getElementById('r-emoji').textContent = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📚';
+}
+
+function restart() { start(); }
+start();
+</script>
+</body>
+</html>

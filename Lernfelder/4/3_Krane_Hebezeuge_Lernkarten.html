@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Krane & Hebezeuge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 14px 40px; }
+  h1 { font-size: 1.3rem; font-weight: 700; color: #fb923c; margin-bottom: 3px; text-align: center; }
+  .subtitle { font-size: 0.8rem; color: #94a3b8; margin-bottom: 20px; text-align: center; }
+  .score-box { display: flex; gap: 16px; margin-bottom: 16px; }
+  .score-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot-green { background: #4ade80; } .dot-red { background: #f87171; }
+  .progress-bar { width: 100%; max-width: 500px; background: #1e293b; border-radius: 999px; height: 7px; margin-bottom: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #fb923c, #fbbf24); border-radius: 999px; transition: width 0.4s ease; }
+  .counter { font-size: 0.75rem; color: #64748b; margin-bottom: 16px; text-align: center; }
+  .question-card { width: 100%; max-width: 500px; background: linear-gradient(135deg, #1e293b, #0f1e35); border: 1px solid #334155; border-radius: 18px; padding: 22px 18px; margin-bottom: 16px; }
+  .question-text { font-size: 1rem; font-weight: 600; line-height: 1.5; text-align: center; }
+  .answers { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .answer-btn { width: 100%; padding: 14px 16px; border: 2px solid #334155; border-radius: 14px; background: #1e293b; color: #f1f5f9; font-size: 0.92rem; font-weight: 500; text-align: left; cursor: pointer; transition: all 0.2s; line-height: 1.4; }
+  .answer-btn:active { transform: scale(0.98); }
+  .answer-btn.correct { background: #14532d; border-color: #4ade80; color: #4ade80; }
+  .answer-btn.wrong { background: #3f1f1f; border-color: #f87171; color: #f87171; }
+  .answer-btn.reveal { background: #1a3a2a; border-color: #4ade80; color: #86efac; }
+  .answer-btn:disabled { cursor: default; }
+  .explanation { width: 100%; max-width: 500px; border-radius: 14px; padding: 14px 16px; font-size: 0.88rem; line-height: 1.5; margin-bottom: 14px; display: none; }
+  .explanation.correct { background: #14532d44; border: 1px solid #4ade8066; color: #86efac; }
+  .explanation.wrong { background: #3f1f1f44; border: 1px solid #f8717166; color: #fca5a5; }
+  .next-btn { width: 100%; max-width: 500px; padding: 15px; border: none; border-radius: 14px; background: linear-gradient(135deg, #fb923c, #fbbf24); color: #0f172a; font-size: 1rem; font-weight: 700; cursor: pointer; display: none; margin-bottom: 10px; }
+  .result-screen { text-align: center; max-width: 500px; width: 100%; display: none; }
+  .result-emoji { font-size: 3rem; margin-bottom: 14px; }
+  .result-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; color: #fb923c; }
+  .result-sub { color: #94a3b8; margin-bottom: 20px; font-size: 0.9rem; }
+  .result-score { font-size: 2.8rem; font-weight: 800; color: #4ade80; margin-bottom: 24px; }
+  .restart-btn { background: linear-gradient(135deg, #fb923c, #fbbf24); color: #0f172a; padding: 14px 32px; border: none; border-radius: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>🏗️ Krane & Hebezeuge</h1>
+<p class="subtitle">Multiple Choice – Thema 3 von 5</p>
+
+<div id="quiz">
+  <div class="score-box">
+    <div class="score-item"><div class="dot dot-green"></div><span id="correct-count">0 Richtig</span></div>
+    <div class="score-item"><div class="dot dot-red"></div><span id="wrong-count">0 Falsch</span></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+  <div class="counter" id="counter">Frage 1 von 10</div>
+  <div class="question-card"><div class="question-text" id="question"></div></div>
+  <div class="answers" id="answers"></div>
+  <div class="explanation" id="explanation"></div>
+  <button class="next-btn" id="next-btn" onclick="nextQuestion()">Weiter →</button>
+</div>
+
+<div class="result-screen" id="result">
+  <div class="result-emoji" id="r-emoji">🎉</div>
+  <div class="result-title">Fertig!</div>
+  <div class="result-sub" id="r-sub"></div>
+  <div class="result-score" id="r-score"></div>
+  <button class="restart-btn" onclick="restart()">🔄 Nochmal üben</button>
+</div>
+
+<script>
+const questions = [{"q": "Was kann ein Kran im Gegensatz zu einem einfachen Hebezeug?", "answers": ["Nur senkrecht heben und senken", "Lasten in drei Richtungen bewegen: heben/senken und horizontal verfahren", "Lasten automatisch anschlagen ohne Hilfspersonal", "Lasten ohne Tragfähigkeitsbegrenzung transportieren"], "correct": 1, "explanation": "Ein Kran kombiniert heben/senken mit horizontaler Bewegung (verfahren und/oder schwenken) – das ermöglicht dreidimensionalen Transport im Arbeitsbereich."}, {"q": "Was ist ein Brückenkran?", "answers": ["Ein Kran, der auf Brücken eingesetzt wird", "Ein Kran, dessen Träger auf Längsträgern quer durch eine Halle fährt und die gesamte Hallenfläche abdeckt", "Ein kleiner Kran an der Hallenwand mit begrenztem Schwenkbereich", "Ein Kran auf einem hohen Turm, typisch auf Baustellen"], "correct": 1, "explanation": "Der Brückenkran fährt auf zwei Kranbahnträgern an den Hallenwänden und kann die gesamte Hallenfläche bedienen – ideal für schwere Lasten in Produktionshallen."}, {"q": "Was ist ein Turmdrehkran?", "answers": ["Ein Kran für Lagerhallen mit sehr engen Gassen", "Ein Kran auf einem hohen Turm mit drehendem Ausleger – typisch auf Baustellen", "Ein kleiner Kran für den innerbetrieblichen Transport", "Ein Unterwasserkran für Hafenbetriebe"], "correct": 1, "explanation": "Der Turmdrehkran steht auf einem hohen Turm und hat einen drehbaren Ausleger. Er ist das typische Bild auf Baustellen und ermöglicht große Reichweiten und Höhen."}, {"q": "Welcher ist ein typischer Vorteil von Kranen?", "answers": ["Günstige Anschaffungskosten", "Sehr hohe Fahrgeschwindigkeiten", "Können sehr schwere Lasten heben und nutzen den Luftraum, ohne den Boden zu belegen", "Flexibel einsetzbar ohne feste Installation"], "correct": 2, "explanation": "Krane können extrem schwere Lasten bewegen und arbeiten im Luftraum – der Boden bleibt frei für Personen und Fahrzeuge. Das ist ihr größter Vorteil gegenüber bodengebundenen Fördermitteln."}, {"q": "Welche Gefahr besteht beim Kranen besonders?", "answers": ["Überhitzung des Kranamotors bei langen Fahrten", "Herabfallen oder Pendeln der Last und Kollision mit Personen", "Zu hoher Stromverbrauch bei schweren Lasten", "Korrosion der Stahlseile bei hoher Luftfeuchtigkeit"], "correct": 1, "explanation": "Die größte Gefahr beim Kranen ist die hängende Last – sie kann herunterfallen, pendeln oder mit Personen kollidieren. Deshalb ist eine Sperrzone unter der Last Pflicht."}, {"q": "Welche Schutzmaßnahme ist beim Kranen besonders wichtig?", "answers": ["Sicherheitsgurt für den Kranführer anlegen", "Sperrzone unter der schwebenden Last einrichten und freihalten", "Kran nur bei Tageslicht betreiben", "Last immer mit Höchstgeschwindigkeit bewegen"], "correct": 1, "explanation": "Unter einer schwebenden Last darf sich niemand aufhalten – eine abgesperrte Sperrzone schützt vor herabfallenden Gegenständen und ist gesetzlich vorgeschrieben."}, {"q": "Was ist ein Portalkran?", "answers": ["Ein Kran, der an der Hallenwand montiert ist", "Ein Kran, der auf bodenseitigen Schienen läuft und ein torförmiges Stahlgestell hat", "Ein kleiner Handkran für Werkstätten", "Ein Kran, der sich nur um eine feste Achse dreht"], "correct": 1, "explanation": "Der Portalkran läuft auf Bodenschienen und hat ein portales (torförmiges) Gestell. Er ist typisch in Häfen, auf Bahnhöfen und im Freien für große, schwere Lasten."}, {"q": "Was ist ein Kettenzug?", "answers": ["Ein Transportsystem für Paletten auf Kettenförderbändern", "Ein Hebezeug, das manuell oder elektrisch eine Kette aufwickelt um Lasten zu heben", "Eine Sicherheitskette am Gabelstapler", "Ein Verbindungselement zwischen Kran und Palette"], "correct": 1, "explanation": "Ein Kettenzug ist ein Hebezeug (kein Kran), das über eine aufgewickelte Kette Lasten hebt. Er wird oft an Kranträgern oder Deckenträgern eingehängt und manuell oder elektrisch betrieben."}, {"q": "Welcher Nachteil ist typisch für Krane?", "answers": ["Sie können keine Lasten über 1 Tonne heben", "Sie benötigen immer zwei Personen zur Bedienung", "Hohe Anschaffungs- und Installationskosten sowie feste Infrastruktur nötig", "Sie können nicht in Gebäuden eingesetzt werden"], "correct": 2, "explanation": "Krane erfordern eine feste Kranbahn-Infrastruktur (Schienen, Träger) und haben hohe Anschaffungskosten. Außerdem sind sie im Vergleich zu Flurförderzeugen langsamer."}, {"q": "Was sind die Hauptbestandteile eines Krans?", "answers": ["Motor, Reifen, Fahrerkabine, Batterie", "Tragwerk, Laufwerk, Hubwerk, Lastaufnahmemittel und Steuerung", "Gabelzinken, Hubmast, Gegengewicht, Batterie", "Ausleger, Teleskopgabel, Schienen, Sicherheitsgurt"], "correct": 1, "explanation": "Ein Kran besteht aus: Tragwerk (Stahlkonstruktion), Laufwerk (Fahrwerk auf Schienen), Hubwerk (Seilzug/Kettenzug mit Motor), Lastaufnahmemittel (z.B. Haken) und der Steuereinheit."}];
+let shuffled, current = 0, correct = 0, wrong = 0;
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function start() {
+  shuffled = shuffle(questions).map(q => {
+    const indexed = q.answers.map((a, i) => ({text: a, isCorrect: i === q.correct}));
+    const shuffledA = shuffle(indexed);
+    return {...q, shuffledAnswers: shuffledA};
+  });
+  current = 0; correct = 0; wrong = 0;
+  document.getElementById('correct-count').textContent = '0 Richtig';
+  document.getElementById('wrong-count').textContent = '0 Falsch';
+  document.getElementById('quiz').style.display = 'flex';
+  document.getElementById('quiz').style.flexDirection = 'column';
+  document.getElementById('quiz').style.alignItems = 'center';
+  document.getElementById('quiz').style.width = '100%';
+  document.getElementById('result').style.display = 'none';
+  render();
+}
+
+function render() {
+  const q = shuffled[current];
+  document.getElementById('counter').textContent = `Frage ${current+1} von ${shuffled.length}`;
+  document.getElementById('progress').style.width = `${(current/shuffled.length)*100}%`;
+  document.getElementById('question').textContent = q.q;
+  const expl = document.getElementById('explanation');
+  expl.style.display = 'none'; expl.className = 'explanation';
+  document.getElementById('next-btn').style.display = 'none';
+  const container = document.getElementById('answers');
+  container.innerHTML = '';
+  q.shuffledAnswers.forEach((a, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = a.text;
+    btn.onclick = () => answer(a.isCorrect, q.explanation, i);
+    container.appendChild(btn);
+  });
+}
+
+function answer(isCorrect, explanation, chosenIdx) {
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach(b => b.disabled = true);
+  const q = shuffled[current];
+  btns.forEach((b, i) => {
+    if (q.shuffledAnswers[i].isCorrect) b.classList.add(i === chosenIdx ? 'correct' : 'reveal');
+    else if (i === chosenIdx) b.classList.add('wrong');
+  });
+  const expl = document.getElementById('explanation');
+  expl.textContent = (isCorrect ? '✅ ' : '❌ ') + explanation;
+  expl.className = 'explanation ' + (isCorrect ? 'correct' : 'wrong');
+  expl.style.display = 'block';
+  if (isCorrect) { correct++; document.getElementById('correct-count').textContent = correct + ' Richtig'; }
+  else { wrong++; document.getElementById('wrong-count').textContent = wrong + ' Falsch'; }
+  document.getElementById('next-btn').style.display = 'block';
+}
+
+function nextQuestion() {
+  current++;
+  if (current >= shuffled.length) showResult();
+  else render();
+}
+
+function showResult() {
+  document.getElementById('quiz').style.display = 'none';
+  document.getElementById('result').style.display = 'block';
+  const pct = Math.round((correct / shuffled.length) * 100);
+  document.getElementById('r-score').textContent = `${correct} / ${shuffled.length} richtig (${pct}%)`;
+  document.getElementById('r-sub').textContent = pct >= 80 ? 'Stark! Du beherrschst das Thema 💪' : pct >= 50 ? 'Gut! Noch ein bisschen üben 👍' : 'Weitermachen – du schaffst das! 📚';
+  document.getElementById('r-emoji').textContent = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📚';
+}
+
+function restart() { start(); }
+start();
+</script>
+</body>
+</html>

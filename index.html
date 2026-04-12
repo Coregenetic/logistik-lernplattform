@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anmelden – Lernplattform Logistik</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+  .wrap { width:100%; max-width:400px; }
+  .logo { text-align:center; margin-bottom:28px; }
+  .logo h1 { font-size:1.6rem; margin-bottom:4px; }
+  .logo p { color:var(--muted2); font-size:0.88rem; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px; }
+  .tabs { display:flex; gap:4px; background:var(--surface2); border-radius:10px; padding:3px; margin-bottom:22px; }
+  .tab { flex:1; padding:8px; text-align:center; border-radius:8px; cursor:pointer; font-size:0.87rem; font-weight:600; color:var(--muted2); border:none; background:none; font-family:inherit; transition:all 0.2s; }
+  .tab.active { background:var(--surface); color:var(--text); }
+  .section { display:none; }
+  .section.active { display:block; }
+  .bg1 { position:fixed; width:350px; height:350px; background:#3b7ff510; border-radius:50%; filter:blur(80px); top:-100px; right:-100px; pointer-events:none; z-index:-1; }
+  .bg2 { position:fixed; width:280px; height:280px; background:#7c4dff10; border-radius:50%; filter:blur(80px); bottom:-60px; left:-60px; pointer-events:none; z-index:-1; }
+</style>
+</head>
+<body>
+<div class="bg1"></div>
+<div class="bg2"></div>
+
+<div class="wrap">
+  <div class="logo">
+    <h1 class="gradient-text">🚛 Lernplattform Logistik</h1>
+    <p>Deine Plattform für die Ausbildung</p>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="tab-login" onclick="switchTab('login')">Anmelden</button>
+      <button class="tab" id="tab-reg" onclick="switchTab('register')">Registrieren</button>
+    </div>
+    <div id="alert"></div>
+
+    <div class="section active" id="sec-login">
+      <div class="form-group">
+        <label class="form-label">Vorname</label>
+        <input class="form-input" type="text" id="login-name" placeholder="Dein Vorname">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Passwort</label>
+        <input class="form-input" type="password" id="login-pw" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()">Anmelden</button>
+    </div>
+
+    <div class="section" id="sec-reg">
+      <div class="form-group">
+        <label class="form-label">Vorname</label>
+        <input class="form-input" type="text" id="reg-name" placeholder="z.B. Max">
+      </div>
+      <div class="form-group">
+        <label class="form-label">E-Mail</label>
+        <input class="form-input" type="email" id="reg-email" placeholder="dein@email.de">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Passwort (mind. 6 Zeichen)</label>
+        <input class="form-input" type="password" id="reg-pw" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-reg" onclick="doRegister()">Konto erstellen</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script>
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Bereits eingeloggt?
+  db.auth.getSession().then(({ data: { session } }) => {
+    if (session) window.location.href = 'dashboard.html';
+  });
+
+  function switchTab(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-reg').classList.toggle('active', tab === 'register');
+    document.getElementById('sec-login').classList.toggle('active', tab === 'login');
+    document.getElementById('sec-reg').classList.toggle('active', tab === 'register');
+    document.getElementById('alert').innerHTML = '';
+  }
+
+  function showAlert(msg, type = 'error') {
+    document.getElementById('alert').innerHTML = `<div class="alert alert-${type}" style="margin-bottom:14px">${msg}</div>`;
+  }
+
+  function setBtn(id, loading, label) {
+    const btn = document.getElementById(id);
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Bitte warten...' : label;
+  }
+
+  async function doLogin() {
+    const name = document.getElementById('login-name').value.trim().toLowerCase();
+    const pw = document.getElementById('login-pw').value;
+    if (!name || !pw) return showAlert('Bitte alle Felder ausfüllen.');
+    setBtn('btn-login', true, 'Anmelden');
+
+    const { data: profile } = await db.from('profiles').select('email').eq('username', name).maybeSingle();
+    if (!profile?.email) {
+      setBtn('btn-login', false, 'Anmelden');
+      return showAlert('Vorname nicht gefunden. Bitte registrieren.');
+    }
+
+    const { error } = await db.auth.signInWithPassword({ email: profile.email, password: pw });
+    setBtn('btn-login', false, 'Anmelden');
+    if (error) return showAlert('Falscher Vorname oder falsches Passwort.');
+    window.location.href = 'dashboard.html';
+  }
+
+  async function doRegister() {
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
+    const pw = document.getElementById('reg-pw').value;
+    if (!name || !email || !pw) return showAlert('Bitte alle Felder ausfüllen.');
+    if (pw.length < 6) return showAlert('Passwort muss mindestens 6 Zeichen haben.');
+    setBtn('btn-reg', true, 'Konto erstellen');
+
+    const { data: existing } = await db.from('profiles').select('id').eq('username', name.toLowerCase()).maybeSingle();
+    if (existing) {
+      setBtn('btn-reg', false, 'Konto erstellen');
+      return showAlert('Dieser Vorname ist bereits vergeben.');
+    }
+
+    const { error } = await db.auth.signUp({
+      email, password: pw,
+      options: { data: { username: name.toLowerCase(), full_name: name, email } }
+    });
+    setBtn('btn-reg', false, 'Konto erstellen');
+    if (error) return showAlert(error.message);
+    showAlert('Konto erstellt! Du kannst dich jetzt anmelden.', 'success');
+    setTimeout(() => switchTab('login'), 2000);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (document.getElementById('sec-login').classList.contains('active')) doLogin();
+    else doRegister();
+  });
+</script>
+</body>
+</html>
