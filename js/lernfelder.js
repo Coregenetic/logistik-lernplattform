@@ -59,36 +59,47 @@ async function showLernfeldDetail(lfId) {
   const { data: lf } = await db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle();
   if (!lf || (!lf.freigeschaltet && !isMod)) return showLernfelder();
 
-  // OPTIMIERT: Hier werden jetzt nur noch die nötigsten Spalten geladen, OHNE das riesige Quiz-JSON!
-  const { data: inhalte } = await db.from('inhalte').select('id, titel, typ, reihenfolge, lernfeld_id').eq('lernfeld_id', lfId).order('reihenfolge');
+  // OPTIMIERT: Nur nötige Spalten laden + Fortschritt abrufen
+  const [{ data: inhalte }, { data: fp }] = await Promise.all([
+    db.from('inhalte').select('id, titel, typ, reihenfolge, lernfeld_id').eq('lernfeld_id', lfId).order('reihenfolge'),
+    db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
+  ]);
+  const doneIds = (fp || []).map(f => f.inhalt_id); // Liste aller erledigten IDs
+
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥' };
 
   const inhaltCards = inhalte && inhalte.length
-    ? inhalte.map(i => `
-        <div class="card" style="margin-bottom:12px;cursor:pointer" onclick="showInhalt(${i.id},${lfId})">
+    ? inhalte.map(i => {
+        const isDone = doneIds.includes(i.id); // Prüft, ob dieser Inhalt schon erledigt ist
+        return `
+        <div class="card" style="margin-bottom:12px;cursor:pointer;${isDone ? 'border-left:4px solid var(--correct)' : ''}" onclick="showInhalt(${i.id},${lfId})">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div style="display:flex;align-items:center;gap:12px">
-              <span style="font-size:1.5rem">${typeIcon[i.typ]||'📄'}</span>
+              <span style="font-size:1.5rem">${isDone ? '✅' : (typeIcon[i.typ]||'📄')}</span>
               <div>
-                <div style="font-weight:600">${i.titel}</div>
+                <div style="font-weight:600;${isDone ? 'color:var(--correct)' : ''}">${i.titel}</div>
                 <div style="font-size:0.78rem;color:var(--muted2);text-transform:capitalize">${i.typ}</div>
               </div>
             </div>
             <span style="color:var(--accent);font-size:1.2rem">→</span>
           </div>
-        </div>`).join('')
+        </div>`;
+      }).join('')
     : '<div class="alert alert-info">Noch keine Inhalte für dieses Lernfeld.</div>';
 
   const mobInhalte = inhalte && inhalte.length
-    ? inhalte.map(i => `
-        <div class="mob-inhalt-card" onclick="showInhalt(${i.id},${lfId})">
-          <div class="mob-inhalt-type">${typeIcon[i.typ]||'📄'}</div>
+    ? inhalte.map(i => {
+        const isDone = doneIds.includes(i.id);
+        return `
+        <div class="mob-inhalt-card" onclick="showInhalt(${i.id},${lfId})" style="${isDone ? 'border-left:3px solid var(--correct)' : ''}">
+          <div class="mob-inhalt-type">${isDone ? '✅' : (typeIcon[i.typ]||'📄')}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:0.92rem">${i.titel}</div>
+            <div style="font-weight:600;font-size:0.92rem;${isDone ? 'color:var(--correct)' : ''}">${i.titel}</div>
             <div style="font-size:0.75rem;color:var(--muted2);text-transform:capitalize;margin-top:2px">${i.typ}</div>
           </div>
           <span style="color:var(--muted);font-size:1.1rem">›</span>
-        </div>`).join('')
+        </div>`;
+      }).join('')
     : '<div class="alert alert-info">Noch keine Inhalte.</div>';
 
   setDesktop(`
@@ -117,26 +128,34 @@ async function showLernfeldDetail(lfId) {
 }
 
 async function showInhalt(inhaltId, lfId) {
-  // Hier bleibt das '*' stehen, weil das Quiz nun gestartet wird und wir die Fragen brauchen!
-  const { data: i } = await db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle();
+  // Lädt den Inhalt (hier mit * für das Quiz) UND prüft, ob der User genau diesen Inhalt schon markiert hat
+  const [{ data: i }, { data: isDone }] = await Promise.all([
+    db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle(),
+    db.from('fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId).maybeSingle()
+  ]);
+  
   const backBtn = `← LF ${i.lernfelder.nummer}`;
   if (i.typ === 'quiz') {
     renderQuiz(i, backBtn, () => showLernfeldDetail(i.lernfelder.id));
   } else {
     const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    
+    // Verändert den Button, falls schon erledigt!
+    const doneButtonHTML = isDone 
+      ? `<button class="btn btn-secondary" disabled>✅ Bereits erledigt</button>`
+      : `<button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>`;
+      
     setDesktop(`
       <button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${i.lernfelder.id})" style="margin-bottom:20px">${backBtn}</button>
       <h1 style="margin-bottom:20px">${i.titel}</h1>
       <div class="card"><div class="content-text">${html}</div></div>
-      <div style="margin-top:16px">
-        <button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
-      </div>
+      <div style="margin-top:16px">${doneButtonHTML}</div>
     `);
     setMobile(`
       <button class="mob-back" onclick="showLernfeldDetail(${i.lernfelder.id})">${backBtn}</button>
       <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${i.titel}</div>
       <div class="card" style="margin-bottom:16px"><div class="content-text" style="font-size:0.92rem;line-height:1.7">${html}</div></div>
-      <button class="btn btn-success btn-full" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
+      ${doneButtonHTML.replace('class="btn ', 'class="btn btn-full ')}
     `);
   }
 }
