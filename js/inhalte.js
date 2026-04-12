@@ -1,4 +1,5 @@
 // ── INHALTE VERWALTEN (MOD+) ─────────────────────────────────
+// Verwaltet Inhalte für Lernfelder UND Fach-Kapitel
 
 async function showInhalte() {
   setActive('lnk-inhalte', 'bn-mod');
@@ -131,12 +132,14 @@ async function showInhalte() {
     <div id="add-form" style="margin-bottom:8px"></div>
 
     <div style="display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:20px;width:fit-content">
-      <button id="itab-lf-btn"   style="${tabStyle(true)}"  onclick="switchInhalteTab('lf')">📚 Lernfelder</button>
-      <button id="itab-fach-btn" style="${tabStyle(false)}" onclick="switchInhalteTab('fach')">📘 Fächer</button>
+      <button id="itab-lf-btn"     style="${tabStyle(true)}"  onclick="switchInhalteTab('lf')">📚 Lernfelder</button>
+      <button id="itab-fach-btn"   style="${tabStyle(false)}" onclick="switchInhalteTab('fach')">📘 Fächer</button>
+      <button id="itab-kapitel-btn" style="${tabStyle(false)}" onclick="switchInhalteTab('kapitel')">📂 Kapitel</button>
     </div>
 
     <div id="itab-lf">${lfGroupsHTML}</div>
     <div id="itab-fach" style="display:none">${fachGroupsHTML}</div>
+    <div id="itab-kapitel" style="display:none"></div>
   `);
 
   setMobile(`
@@ -149,16 +152,28 @@ async function showInhalte() {
     ${mobLfCards}
     <div class="mob-section" style="margin-top:20px">Fächer</div>
     ${mobFachCards}
+    <div class="mob-section" style="margin-top:20px">📂 Kapitel verwalten</div>
+    <div class="mob-menu-card" onclick="showKapitelVerwaltung()">
+      <div class="mob-menu-icon">📂</div>
+      <div class="mob-menu-info">
+        <div class="mob-menu-title">Kapitel anlegen & löschen</div>
+        <div class="mob-menu-sub">Kapitel für Englisch, Kommunikation & WiPo</div>
+      </div>
+      <div class="mob-lf-arrow">›</div>
+    </div>
   `);
 }
 
 function switchInhalteTab(tab) {
-  document.getElementById('itab-lf').style.display   = tab==='lf'   ? 'block' : 'none';
-  document.getElementById('itab-fach').style.display = tab==='fach' ? 'block' : 'none';
+  document.getElementById('itab-lf').style.display      = tab==='lf'      ? 'block' : 'none';
+  document.getElementById('itab-fach').style.display    = tab==='fach'    ? 'block' : 'none';
+  document.getElementById('itab-kapitel').style.display = tab==='kapitel' ? 'block' : 'none';
   const on  = 'background:var(--surface);color:var(--text);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:0.87rem;font-weight:600;border:none;font-family:inherit;';
   const off = 'background:none;color:var(--muted2);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:0.87rem;font-weight:600;border:none;font-family:inherit;';
-  document.getElementById('itab-lf-btn').style.cssText   = tab==='lf'   ? on : off;
-  document.getElementById('itab-fach-btn').style.cssText = tab==='fach' ? on : off;
+  document.getElementById('itab-lf-btn').style.cssText      = tab==='lf'      ? on : off;
+  document.getElementById('itab-fach-btn').style.cssText    = tab==='fach'    ? on : off;
+  document.getElementById('itab-kapitel-btn').style.cssText = tab==='kapitel' ? on : off;
+  if (tab === 'kapitel') renderKapitelVerwaltung();
 }
 
 // ── ADD FORM (Desktop) ────────────────────────────────────────
@@ -378,4 +393,167 @@ async function deleteFachInhaltFromEdit(id) {
   if (!confirm('Inhalt wirklich löschen?')) return;
   await db.from('fach_inhalte').delete().eq('id', id);
   showInhalte();
+}
+
+// ── KAPITEL VERWALTUNG ────────────────────────────────────────
+async function renderKapitelVerwaltung() {
+  const container = document.getElementById('itab-kapitel');
+  if (!container) return;
+  container.innerHTML = '<div style="display:flex;justify-content:center;padding:20px"><div class="spinner"></div></div>';
+
+  const { data: faecher } = await db.from('faecher').select('*').order('reihenfolge');
+  const { data: kapitel } = await db.from('fach_kapitel').select('*, faecher(name,icon)').order('fach_id').order('reihenfolge');
+
+  const fachOptions = (faecher||[]).map(f => `<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
+
+  const gruppen = (faecher||[]).map(fach => {
+    const fachKap = (kapitel||[]).filter(k => k.fach_id === fach.id);
+    const rows = fachKap.length
+      ? fachKap.map((k,i) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;${i>0?'border-top:1px solid var(--border)':''}">
+            <div>
+              <div style="font-weight:600;font-size:0.9rem">${k.name}</div>
+              ${k.beschreibung ? `<div style="font-size:0.78rem;color:var(--muted2);margin-top:2px">${k.beschreibung}</div>` : ''}
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteKapitel(${k.id})">🗑</button>
+          </div>`).join('')
+      : '<div style="font-size:0.85rem;color:var(--muted2);padding:10px 0">Noch keine Kapitel</div>';
+
+    return `
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:1.2rem">${fach.icon}</span>
+          <h3 style="margin:0;font-size:1rem">${fach.name}</h3>
+          <span style="font-size:0.75rem;color:var(--muted2);background:var(--surface2);padding:2px 8px;border-radius:99px">${fachKap.length}</span>
+        </div>
+        <div class="card">${rows}</div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="margin-bottom:14px">Neues Kapitel anlegen</h3>
+      <div class="grid-2" style="margin-bottom:14px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Fach</label>
+          <select class="form-input" id="kap-fach">${fachOptions}</select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Reihenfolge</label>
+          <input class="form-input" type="number" id="kap-reihenfolge" value="${(kapitel||[]).length + 1}" min="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" type="text" id="kap-name" placeholder="z.B. Unit 1: Workplace Communication">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Beschreibung (optional)</label>
+        <input class="form-input" type="text" id="kap-beschreibung" placeholder="Kurze Beschreibung des Kapitels">
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px">
+        <button class="btn btn-primary" onclick="saveKapitel()">+ Kapitel anlegen</button>
+        <span id="kap-msg" style="font-size:0.85rem"></span>
+      </div>
+    </div>
+    <h2 style="margin-bottom:16px">Vorhandene Kapitel</h2>
+    ${gruppen}
+  `;
+}
+
+// Mobile: eigene Seite
+async function showKapitelVerwaltung() {
+  setMobile('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
+
+  const { data: faecher } = await db.from('faecher').select('*').order('reihenfolge');
+  const { data: kapitel } = await db.from('fach_kapitel').select('*, faecher(name,icon)').order('fach_id').order('reihenfolge');
+  const fachOptions = (faecher||[]).map(f => `<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
+
+  const kapitelCards = (kapitel||[]).map(k => `
+    <div class="mob-lf-card" style="cursor:default">
+      <div class="mob-lf-icon-wrap" style="font-size:1rem">${k.faecher?.icon||'📘'}</div>
+      <div class="mob-lf-info">
+        <div class="mob-lf-num">${k.faecher?.name}</div>
+        <div class="mob-lf-name">${k.name}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteKapitelMob(${k.id})">🗑</button>
+    </div>`).join('') || '<div class="alert alert-info">Noch keine Kapitel vorhanden.</div>';
+
+  setMobile(`
+    <button class="mob-back" onclick="showInhalte()">← Zurück</button>
+    <div class="mob-greeting" style="font-size:1.1rem">📂 Kapitel verwalten</div>
+    <div class="mob-greeting-sub" style="margin-bottom:20px">Kapitel für Fächer anlegen & löschen</div>
+
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin-bottom:14px;font-size:1rem">Neues Kapitel</h3>
+      <div class="form-group">
+        <label class="form-label">Fach</label>
+        <select class="form-input" id="mob-kap-fach">${fachOptions}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input class="form-input" type="text" id="mob-kap-name" placeholder="z.B. Unit 1: Workplace">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Beschreibung (optional)</label>
+        <input class="form-input" type="text" id="mob-kap-beschreibung" placeholder="Kurze Beschreibung">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" style="flex:1" onclick="saveKapitelMob()">+ Anlegen</button>
+      </div>
+      <div id="mob-kap-msg" style="margin-top:10px"></div>
+    </div>
+
+    <div class="mob-section">Vorhandene Kapitel</div>
+    <div id="mob-kapitel-list">${kapitelCards}</div>
+  `);
+}
+
+async function saveKapitel() {
+  const fachId      = document.getElementById('kap-fach').value;
+  const name        = document.getElementById('kap-name').value.trim();
+  const beschreibung = document.getElementById('kap-beschreibung').value.trim();
+  const reihenfolge = parseInt(document.getElementById('kap-reihenfolge').value) || 1;
+  const msgEl       = document.getElementById('kap-msg');
+  if (!name) return msgEl.innerHTML = '<span style="color:var(--danger)">❌ Name fehlt.</span>';
+
+  const { error } = await db.from('fach_kapitel').insert({ fach_id:fachId, name, beschreibung:beschreibung||null, reihenfolge });
+  if (error) return msgEl.innerHTML = `<span style="color:var(--danger)">❌ ${error.message}</span>`;
+
+  document.getElementById('kap-name').value = '';
+  document.getElementById('kap-beschreibung').value = '';
+  msgEl.innerHTML = '<span style="color:var(--correct)">✅ Kapitel angelegt!</span>';
+  setTimeout(() => { msgEl.innerHTML=''; renderKapitelVerwaltung(); }, 1000);
+
+  // Cache aktualisieren
+  const { data } = await db.from('fach_kapitel').select('*, faecher(name, icon)').order('fach_id').order('reihenfolge');
+  window._kapitel = data || [];
+}
+
+async function saveKapitelMob() {
+  const fachId       = document.getElementById('mob-kap-fach').value;
+  const name         = document.getElementById('mob-kap-name').value.trim();
+  const beschreibung = document.getElementById('mob-kap-beschreibung').value.trim();
+  const msgEl        = document.getElementById('mob-kap-msg');
+  if (!name) return msgEl.innerHTML = '<div class="alert alert-error">Name fehlt.</div>';
+
+  const { data: existing } = await db.from('fach_kapitel').select('reihenfolge').eq('fach_id', fachId).order('reihenfolge', { ascending:false }).limit(1);
+  const reihenfolge = (existing?.[0]?.reihenfolge || 0) + 1;
+
+  const { error } = await db.from('fach_kapitel').insert({ fach_id:fachId, name, beschreibung:beschreibung||null, reihenfolge });
+  if (error) return msgEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+  msgEl.innerHTML = '<div class="alert alert-success">✅ Kapitel angelegt!</div>';
+  setTimeout(() => showKapitelVerwaltung(), 1000);
+}
+
+async function deleteKapitel(id) {
+  if (!confirm('Kapitel und alle enthaltenen Inhalte löschen?')) return;
+  await db.from('fach_kapitel').delete().eq('id', id);
+  renderKapitelVerwaltung();
+}
+
+async function deleteKapitelMob(id) {
+  if (!confirm('Kapitel und alle enthaltenen Inhalte löschen?')) return;
+  await db.from('fach_kapitel').delete().eq('id', id);
+  showKapitelVerwaltung();
 }
