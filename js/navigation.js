@@ -22,6 +22,11 @@ function buildSidebar() {
     ${isAdmin ? `
     <button class="sidebar-link" id="lnk-admin" onclick="showAdmin()"><span class="sidebar-icon">⚙️</span>Admin Panel</button>
     ` : ''}
+    
+    <div style="flex-grow:1"></div>
+    <button class="sidebar-link" style="margin-top:20px; color:var(--danger)" onclick="db.auth.signOut().then(()=>window.location.href='index.html')">
+      <span class="sidebar-icon">🚪</span>Abmelden
+    </button>
   `;
 }
 
@@ -34,7 +39,7 @@ function buildBottomNav() {
     { id:'bn-faecher', icon:'📘', label:'Fächer',     fn:'showFaecherMob()' },
     { id:'bn-fp',      icon:'📊', label:'Fortschritt',fn:'showFortschritt()' },
     ...(isMod   ? [{ id:'bn-mod',   icon:'✏️', label:'Verwalten', fn:'showModMenu()' }] : []),
-    ...(isAdmin ? [{ id:'bn-admin', icon:'⚙️', label:'Admin',     fn:'showAdmin()' }] : []),
+    ...(isAdmin && !isMod ? [{ id:'bn-admin', icon:'⚙️', label:'Admin', fn:'showAdmin()' }] : []),
   ];
   document.getElementById('bottom-nav').innerHTML = items.map(i => `
     <button class="bn-item" id="${i.id}" onclick="${i.fn}">
