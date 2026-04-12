@@ -71,9 +71,14 @@
 <script src="js/config.js"></script>
 <script>
   const { createClient } = supabase;
-  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+  // OPTIMIERT: Nutzt sessionStorage für automatischen Logout beim Schließen des Browsers
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      storage: window.sessionStorage
+    }
+  });
 
-  // Bereits eingeloggt?
   db.auth.getSession().then(({ data: { session } }) => {
     if (session) window.location.href = 'dashboard.html';
   });
