@@ -77,7 +77,10 @@ async function showFaecherMob() {
 async function showKapitel(kapitelId, fachId) {
   showSpinner();
   const { data: kap }     = await db.from('fach_kapitel').select('*, faecher(id,name,icon)').eq('id', kapitelId).maybeSingle();
-  const { data: inhalte } = await db.from('fach_inhalte').select('*').eq('kapitel_id', kapitelId).order('reihenfolge');
+  
+  // OPTIMIERT: Auch hier nur die schlanken Daten ohne das JSON!
+  const { data: inhalte } = await db.from('fach_inhalte').select('id, titel, typ, reihenfolge, kapitel_id').eq('kapitel_id', kapitelId).order('reihenfolge');
+  
   const { data: vokabeln } = await db.from('vokabeln').select('id').eq('kapitel_id', kapitelId);
   const isEnglisch = fachId === 1;
   const typeIcon   = { text:'📄', quiz:'❓', grammatik:'📝' };
