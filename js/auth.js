@@ -3,50 +3,74 @@ let USER = null, PROFILE = null;
 const isMobile = () => window.innerWidth <= 700;
 
 db.auth.getSession().then(async ({ data: { session } }) => {
-  if (!session) return window.location.href = 'index.html';
+  // Wenn keine Session da ist, sofort zurück zum Login
+  if (!session) {
+    window.location.href = 'index.html';
+    return;
+  }
+  
   USER = session.user;
 
+  // Profil laden
   const { data } = await db.from('profiles').select('*').eq('id', USER.id).maybeSingle();
   PROFILE = data;
-  if (!PROFILE) return window.location.href = 'index.html';
+  
+  if (!PROFILE) {
+    await db.auth.signOut();
+    window.location.href = 'index.html';
+    return;
+  }
 
   const roleColors = { admin:'badge-admin', mod:'badge-mod', user:'badge-user' };
   const initials   = PROFILE.username.substring(0, 2).toUpperCase();
 
-  // Desktop navbar
-  const navNameEl = document.getElementById('nav-name');
-  if (navNameEl) navNameEl.textContent = PROFILE.username;
-  
-  const navBadgeEl = document.getElementById('nav-badge');
-  if (navBadgeEl) navBadgeEl.innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
+  // Desktop UI befüllen
+  const nameEl = document.getElementById('nav-name');
+  const badgeEl = document.getElementById('nav-badge');
+  if (nameEl) nameEl.textContent = PROFILE.username;
+  if (badgeEl) badgeEl.innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
 
-  // Mobile header
+  // Mobile UI befüllen
   const mobBadgeEl = document.getElementById('mob-badge');
-  if (mobBadgeEl) mobBadgeEl.innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
-  
   const mobAvatar = document.getElementById('mob-avatar');
+  if (mobBadgeEl) mobBadgeEl.innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
   if (mobAvatar) {
-    // Macht den Logout-Button auf dem Handy offensichtlicher (Initialen + Tür-Icon)
     mobAvatar.innerHTML = `${initials} <span style="font-size:1.1rem;margin-left:4px">🚪</span>`;
     mobAvatar.style.width = 'auto'; 
-    mobAvatar.style.padding = '0 14px';
+    mobAvatar.style.padding = '0 12px';
     mobAvatar.style.borderRadius = '12px';
+    mobAvatar.style.display = 'flex';
+    mobAvatar.style.alignItems = 'center';
+    
     mobAvatar.onclick = () => {
-      if (confirm('Möchtest du dich wirklich abmelden?')) { 
+      if (confirm('Abmelden?')) { 
         db.auth.signOut().then(() => window.location.href = 'index.html'); 
       }
     };
   }
 
+  // Navigation und Startseite aufbauen
   buildSidebar();
   buildBottomNav();
-  showHome();
+  
+  // Warten bis Home-Content bereit ist
+  await showHome();
+
+  // FINALER SCHRITT: Lade-Status entfernen und App einblenden
+  document.body.classList.remove('app-loading');
+  const loader = document.getElementById('initial-loader');
+  if (loader) {
+    setTimeout(() => loader.remove(), 400); // Sanftes Entfernen nach dem Fade-Out
+  }
 });
 
+// Logout Button Desktop
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
   btnLogout.addEventListener('click', async () => {
-    await db.auth.signOut();
-    window.location.href = 'index.html';
+    if (confirm('Wirklich abmelden?')) {
+      await db.auth.signOut();
+      window.location.href = 'index.html';
+    }
   });
 }
