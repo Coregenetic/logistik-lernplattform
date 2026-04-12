@@ -14,25 +14,39 @@ db.auth.getSession().then(async ({ data: { session } }) => {
   const initials   = PROFILE.username.substring(0, 2).toUpperCase();
 
   // Desktop navbar
-  document.getElementById('nav-name').textContent = PROFILE.username;
-  document.getElementById('nav-badge').innerHTML =
-    `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
+  const navNameEl = document.getElementById('nav-name');
+  if (navNameEl) navNameEl.textContent = PROFILE.username;
+  
+  const navBadgeEl = document.getElementById('nav-badge');
+  if (navBadgeEl) navBadgeEl.innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
 
   // Mobile header
-  document.getElementById('mob-badge').innerHTML =
-    `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
+  const mobBadgeEl = document.getElementById('mob-badge');
+  if (mobBadgeEl) mobBadgeEl.innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
+  
   const mobAvatar = document.getElementById('mob-avatar');
-  mobAvatar.textContent = initials;
-  mobAvatar.onclick = () => {
-    if (confirm('Abmelden?')) { db.auth.signOut(); window.location.href = 'index.html'; }
-  };
+  if (mobAvatar) {
+    // Macht den Logout-Button auf dem Handy offensichtlicher (Initialen + Tür-Icon)
+    mobAvatar.innerHTML = `${initials} <span style="font-size:1.1rem;margin-left:4px">🚪</span>`;
+    mobAvatar.style.width = 'auto'; 
+    mobAvatar.style.padding = '0 14px';
+    mobAvatar.style.borderRadius = '12px';
+    mobAvatar.onclick = () => {
+      if (confirm('Möchtest du dich wirklich abmelden?')) { 
+        db.auth.signOut().then(() => window.location.href = 'index.html'); 
+      }
+    };
+  }
 
   buildSidebar();
   buildBottomNav();
   showHome();
 });
 
-document.getElementById('btn-logout').addEventListener('click', async () => {
-  await db.auth.signOut();
-  window.location.href = 'index.html';
-});
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.addEventListener('click', async () => {
+    await db.auth.signOut();
+    window.location.href = 'index.html';
+  });
+}
