@@ -7,7 +7,16 @@
 <link rel="stylesheet" href="css/style.css">
 <style>
   body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
-  .wrap { width:100%; max-width:400px; }
+  
+  /* ANTI-FLACKER-LOGIK: Initial versteckt */
+  .wrap { 
+    width:100%; 
+    max-width:400px; 
+    display: none; 
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
   .logo { text-align:center; margin-bottom:28px; }
   .logo h1 { font-size:1.6rem; margin-bottom:4px; }
   .logo p { color:var(--muted2); font-size:0.88rem; }
@@ -19,13 +28,22 @@
   .section.active { display:block; }
   .bg1 { position:fixed; width:350px; height:350px; background:#3b7ff510; border-radius:50%; filter:blur(80px); top:-100px; right:-100px; pointer-events:none; z-index:-1; }
   .bg2 { position:fixed; width:280px; height:280px; background:#7c4dff10; border-radius:50%; filter:blur(80px); bottom:-60px; left:-60px; pointer-events:none; z-index:-1; }
+  
+  /* Lade-Spinner für den ersten Moment */
+  #page-loader {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
 </style>
 </head>
 <body>
 <div class="bg1"></div>
 <div class="bg2"></div>
 
-<div class="wrap">
+<div id="page-loader"><div class="spinner"></div></div>
+
+<div class="wrap" id="login-wrap">
   <div class="logo">
     <h1 class="gradient-text">🚛 Lernplattform Logistik</h1>
     <p>Deine Plattform für die Ausbildung</p>
@@ -72,15 +90,22 @@
 <script>
   const { createClient } = supabase;
   
-  // OPTIMIERT: Nutzt sessionStorage für automatischen Logout beim Schließen des Browsers
+  // Nutzt sessionStorage für automatischen Logout beim Schließen des Browsers
   const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      storage: window.sessionStorage
-    }
+    auth: { storage: window.sessionStorage }
   });
 
+  // Check Session
   db.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = 'dashboard.html';
+    if (session) {
+      window.location.href = 'dashboard.html';
+    } else {
+      // Wenn nicht eingeloggt: Loader weg, Formular sanft einblenden
+      document.getElementById('page-loader').style.display = 'none';
+      const wrap = document.getElementById('login-wrap');
+      wrap.style.display = 'block';
+      setTimeout(() => wrap.style.opacity = '1', 50);
+    }
   });
 
   function switchTab(tab) {
