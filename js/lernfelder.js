@@ -59,7 +59,8 @@ async function showLernfeldDetail(lfId) {
   const { data: lf } = await db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle();
   if (!lf || (!lf.freigeschaltet && !isMod)) return showLernfelder();
 
-  const { data: inhalte } = await db.from('inhalte').select('*').eq('lernfeld_id', lfId).order('reihenfolge');
+  // OPTIMIERT: Hier werden jetzt nur noch die nötigsten Spalten geladen, OHNE das riesige Quiz-JSON!
+  const { data: inhalte } = await db.from('inhalte').select('id, titel, typ, reihenfolge, lernfeld_id').eq('lernfeld_id', lfId).order('reihenfolge');
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥' };
 
   const inhaltCards = inhalte && inhalte.length
@@ -116,6 +117,7 @@ async function showLernfeldDetail(lfId) {
 }
 
 async function showInhalt(inhaltId, lfId) {
+  // Hier bleibt das '*' stehen, weil das Quiz nun gestartet wird und wir die Fragen brauchen!
   const { data: i } = await db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle();
   const backBtn = `← LF ${i.lernfelder.nummer}`;
   if (i.typ === 'quiz') {
