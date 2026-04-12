@@ -142,57 +142,6 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 /* ── BACK BUTTON MOBILE ─────────────────────────── */
 .mob-back { display: flex; align-items: center; gap: 6px; color: var(--accent); font-size: 0.9rem; font-weight: 600; background: none; border: none; font-family: inherit; cursor: pointer; margin-bottom: 16px; padding: 0; }
 
-/* ── IFRAME CONTAINER ───────────────────────────── */
-.iframe-container {
-  width: 100%;
-  height: 70vh;
-  min-height: 500px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: #fff;
-  overflow: hidden;
-  position: relative; /* Wichtig für den Beenden-Button */
-}
-.iframe-container iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-/* Vollbild-Button (nur sichtbar im Fullscreen-Modus) */
-.exit-fs-btn {
-  display: none;
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 9999;
-  box-shadow: var(--shadow);
-  font-size: 0.9rem;
-  padding: 10px 16px;
-}
-.iframe-container:fullscreen { border: none; border-radius: 0; }
-.iframe-container:-webkit-full-screen { border: none; border-radius: 0; }
-.iframe-container:fullscreen .exit-fs-btn { display: flex; }
-.iframe-container:-webkit-full-screen .exit-fs-btn { display: flex; }
-
-/* ── NEU: ACCORDION & SCHRITT-KARTEN ────────────── */
-.accordion { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 12px; overflow: hidden; background: var(--surface); }
-.accordion-header { padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; transition: background 0.2s; }
-.accordion-header:hover { background: var(--surface2); }
-.accordion-body { display: none; background: var(--bg); border-top: 1px solid var(--border); }
-.accordion.open .accordion-body { display: block; }
-.accordion-icon { transition: transform 0.2s; font-size: 0.8rem; color: var(--muted); }
-.accordion.open .accordion-icon { transform: rotate(180deg); }
-
-.step-card { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
-.step-card:hover { border-color: var(--accent); transform: translateX(4px); }
-.step-number { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); color: var(--muted2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
-.step-card.done .step-number { background: var(--correct); color: #fff; }
-
-/* ── NEU: KATEGORIE ÜBERSCHRIFTEN ──────────────── */
-.category-title { font-size: 1.05rem; color: var(--text); margin: 28px 0 12px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
-.category-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
 /* ── DESKTOP: hide mobile elements ─────────────── */
 @media (min-width: 701px) {
   .mob-header, .mob-main, .bottom-nav { display: none !important; }
@@ -328,6 +277,11 @@ function setActive(desktopId, mobileId) {
   if (mobileId) { const el = document.getElementById(mobileId); if (el) el.classList.add('active'); }
 }
 
+function setMain(html) {
+  document.getElementById('main').innerHTML = html;
+  document.getElementById('mob-main').innerHTML = html;
+}
+
 function setDesktop(html) { document.getElementById('main').innerHTML = html; }
 function setMobile(html) { document.getElementById('mob-main').innerHTML = html; }
 
@@ -372,6 +326,7 @@ async function showHome() {
   ]);
   const { data: lernfelder } = await db.from('lernfelder').select('*, lernbereiche(name)').order('nummer').limit(6);
 
+  // Desktop
   setDesktop(`
     <h1 style="margin-bottom:4px">Hallo, <span class="gradient-text">${PROFILE.username}</span> 👋</h1>
     <p style="color:var(--muted2);margin-bottom:28px">Was lernst du heute?</p>
@@ -386,6 +341,7 @@ async function showHome() {
     </div>
   `);
 
+  // Mobile
   setMobile(`
     <div class="mob-greeting">Hallo, <span class="gradient-text">${PROFILE.username}</span> 👋</div>
     <div class="mob-greeting-sub">Was lernst du heute?</div>
@@ -407,6 +363,7 @@ async function showLernfelder() {
 
   const { data: bereiche } = await db.from('lernbereiche').select('*, lernfelder(*)').order('reihenfolge');
 
+  // Desktop grid view
   setDesktop(`
     <h1 style="margin-bottom:6px">Lernfelder</h1>
     <p style="color:var(--muted2);margin-bottom:24px">LF 1 bis LF 12</p>
@@ -419,6 +376,7 @@ async function showLernfelder() {
     `).join('')}
   `);
 
+  // Mobile list view
   setMobile(`
     <div class="mob-greeting" style="font-size:1.1rem">📚 Lernfelder</div>
     <div class="mob-greeting-sub">LF 1 bis LF 12</div>
@@ -438,72 +396,34 @@ async function showLernfeldDetail(lfId) {
   const { data: lf } = await db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle();
   if (!lf || (!lf.freigeschaltet && !isMod)) return showLernfelder();
 
-  // NEU: Wir laden gleichzeitig auch deinen Fortschritt, um erledigte Inhalte abzuhaken
-  const [{ data: inhalte }, { data: progress }] = await Promise.all([
-    db.from('inhalte').select('*').eq('lernfeld_id', lfId).order('reihenfolge'),
-    db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
-  ]);
-  const doneIds = (progress || []).map(p => p.inhalt_id);
-  
+  const { data: inhalte } = await db.from('inhalte').select('*').eq('lernfeld_id', lfId).order('reihenfolge');
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥', html:'🌐' };
 
-  // NEU: KATEGORIEN GRUPPIEREN
-  const groupedInhalte = {};
-  (inhalte || []).forEach(i => {
-    const kat = i.kategorie || 'Lerninhalte'; // Standard-Name, falls du das Feld leer lässt
-    if (!groupedInhalte[kat]) groupedInhalte[kat] = [];
-    groupedInhalte[kat].push(i);
-  });
-
-  // NEU: Schritt-Karten-Design mit Kategorien (Desktop)
-  let inhalteDesktop = '';
-  if (inhalte && inhalte.length) {
-    let globalIdx = 1;
-    for (const [kat, items] of Object.entries(groupedInhalte)) {
-      inhalteDesktop += `<div class="category-title">${kat}</div>`;
-      inhalteDesktop += items.map(i => {
-        const isDone = doneIds.includes(i.id);
-        return `
-        <div class="step-card ${isDone ? 'done' : ''}" onclick="showInhalt(${i.id},${lfId})">
-          <div class="step-number">${isDone ? '✓' : (globalIdx++)}</div>
-          <div style="flex:1">
-            <div style="font-weight:600;font-size:1.05rem;margin-bottom:2px">${i.titel}</div>
-            <div style="font-size:0.8rem;color:var(--muted2);text-transform:capitalize">
-              <span style="margin-right:6px">${typeIcon[i.typ]||'📄'}</span> ${i.typ}
-            </div>
+  const inhalteDesktop = inhalte && inhalte.length ? inhalte.map(i => `
+    <div class="card" style="margin-bottom:12px;cursor:pointer" onclick="showInhalt(${i.id},${lfId})">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:1.5rem">${typeIcon[i.typ]||'📄'}</span>
+          <div>
+            <div style="font-weight:600">${i.titel}</div>
+            <div style="font-size:0.78rem;color:var(--muted2);text-transform:capitalize">${i.typ}</div>
           </div>
-          <div style="color:var(--accent);font-size:1.2rem">→</div>
         </div>
-        `;
-      }).join('');
-    }
-  } else {
-    inhalteDesktop = `<div class="alert alert-info">Noch keine Inhalte für dieses Lernfeld.</div>`;
-  }
+        <span style="color:var(--accent);font-size:1.2rem">→</span>
+      </div>
+    </div>
+  `).join('') : `<div class="alert alert-info">Noch keine Inhalte für dieses Lernfeld.</div>`;
 
-  // NEU: Schritt-Karten-Design mit Kategorien (Mobile)
-  let inhalteMobile = '';
-  if (inhalte && inhalte.length) {
-    let globalIdx = 1;
-    for (const [kat, items] of Object.entries(groupedInhalte)) {
-      inhalteMobile += `<div class="mob-section" style="margin-top:20px; color:var(--text);">${kat}</div>`;
-      inhalteMobile += items.map(i => {
-        const isDone = doneIds.includes(i.id);
-        return `
-        <div class="step-card ${isDone ? 'done' : ''}" style="padding:12px; gap:12px; margin-bottom:8px" onclick="showInhalt(${i.id},${lfId})">
-          <div class="step-number" style="width:28px;height:28px;font-size:0.75rem">${isDone ? '✓' : (globalIdx++)}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:0.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.titel}</div>
-            <div style="font-size:0.75rem;color:var(--muted2);text-transform:capitalize;margin-top:2px">${typeIcon[i.typ]||'📄'} ${i.typ}</div>
-          </div>
-          <span style="color:var(--muted);font-size:1.1rem">›</span>
-        </div>
-        `;
-      }).join('');
-    }
-  } else {
-    inhalteMobile = `<div class="alert alert-info">Noch keine Inhalte.</div>`;
-  }
+  const inhalteMobile = inhalte && inhalte.length ? inhalte.map(i => `
+    <div class="mob-inhalt-card" onclick="showInhalt(${i.id},${lfId})">
+      <div class="mob-inhalt-type">${typeIcon[i.typ]||'📄'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.92rem">${i.titel}</div>
+        <div style="font-size:0.75rem;color:var(--muted2);text-transform:capitalize;margin-top:2px">${i.typ}</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>
+  `).join('') : `<div class="alert alert-info">Noch keine Inhalte.</div>`;
 
   const headerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
@@ -536,46 +456,188 @@ async function showLernfeldDetail(lfId) {
 // ── INHALT ANZEIGEN ───────────────────────────────
 async function showInhalt(inhaltId, lfId) {
   const { data: i } = await db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle();
-  
-  let contentDisplay = '';
-  if (i.typ === 'html') {
-    const filePath = i.inhalt?.text || '';
-    contentDisplay = `
-      <div style="margin-bottom:12px;display:flex;justify-content:flex-end">
-        <button class="btn btn-secondary btn-sm" onclick="const e=document.getElementById('fs-wrapper'); e.requestFullscreen ? e.requestFullscreen() : e.webkitRequestFullscreen ? e.webkitRequestFullscreen() : alert('Vollbild auf diesem Gerät nicht unterstützt')">🔲 Vollbild starten</button>
-      </div>
-      <div class="iframe-container" id="fs-wrapper">
-        <button class="btn btn-danger exit-fs-btn" onclick="document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen ? document.webkitExitFullscreen() : null">✖ Vollbild beenden</button>
-        <iframe id="content-iframe" src="${filePath}" title="${i.titel}"></iframe>
-      </div>
-    `;
-  } else {
-    const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-    contentDisplay = `<div class="card"><div class="content-text" style="font-size:0.92rem;line-height:1.7">${html}</div></div>`;
-  }
-
   const backBtn = `← LF ${i.lernfelder.nummer}`;
 
-  setDesktop(`
-    <button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${i.lernfelder.id})" style="margin-bottom:20px">${backBtn}</button>
-    <h1 style="margin-bottom:20px">${i.titel}</h1>
-    ${contentDisplay}
-    <div style="margin-top:16px">
-      <button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
-    </div>
-  `);
-
-  setMobile(`
-    <button class="mob-back" onclick="showLernfeldDetail(${i.lernfelder.id})">${backBtn}</button>
-    <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${i.titel}</div>
-    <div style="margin-bottom:16px">${contentDisplay}</div>
-    <button class="btn btn-success btn-full" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
-  `);
+  if (i.typ === 'quiz') {
+    renderQuiz(i, backBtn);
+  } else {
+    const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    setDesktop(`
+      <button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${i.lernfelder.id})" style="margin-bottom:20px">${backBtn}</button>
+      <h1 style="margin-bottom:20px">${i.titel}</h1>
+      <div class="card"><div class="content-text">${html}</div></div>
+      <div style="margin-top:16px">
+        <button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
+      </div>
+    `);
+    setMobile(`
+      <button class="mob-back" onclick="showLernfeldDetail(${i.lernfelder.id})">${backBtn}</button>
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${i.titel}</div>
+      <div class="card" style="margin-bottom:16px"><div class="content-text" style="font-size:0.92rem;line-height:1.7">${html}</div></div>
+      <button class="btn btn-success btn-full" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>
+    `);
+  }
 }
 
 async function markDone(inhaltId, lfId) {
   await db.from('fortschritt').upsert({ user_id:USER.id, inhalt_id:inhaltId, abgeschlossen:true, completed_at:new Date().toISOString() });
   showLernfeldDetail(lfId);
+}
+
+// ── QUIZ ENGINE ───────────────────────────────────
+function normalize(t) {
+  return t.toLowerCase()
+    .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9\s]/g,' ');
+}
+
+function bewerte(antwort, frage) {
+  const n = normalize(antwort);
+  const matched = [], missing = [];
+  frage.keywords.forEach(g => {
+    const hit = g.words.some(w => n.includes(normalize(w)));
+    (hit ? matched : missing).push(g.label);
+  });
+  const score = matched.length;
+  const req = frage.required;
+  const verdict = score >= req ? 'richtig' : score >= Math.ceil(req/2) ? 'teilweise' : 'falsch';
+  return { verdict, matched, missing };
+}
+
+function renderQuiz(inhalt, backBtn) {
+  const fragen = inhalt.inhalt?.fragen || [];
+  const shuffled = [...fragen].sort(() => Math.random() - 0.5);
+  let current = 0, richtig = 0, teilweise = 0, falsch = 0;
+
+  const quizStyles = `
+    <style>
+      .quiz-wrap { max-width: 620px; }
+      .quiz-progress { height:5px; background:var(--border); border-radius:99px; overflow:hidden; margin-bottom:20px; }
+      .quiz-progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:99px; transition:width 0.4s; }
+      .quiz-counter { font-size:0.78rem; color:var(--muted2); margin-bottom:16px; }
+      .quiz-scores { display:flex; gap:14px; margin-bottom:20px; font-size:0.82rem; }
+      .qs-r { color:var(--correct); font-weight:600; }
+      .qs-t { color:var(--warning); font-weight:600; }
+      .qs-f { color:var(--danger); font-weight:600; }
+      .quiz-frage { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; margin-bottom:14px; font-size:1rem; font-weight:600; line-height:1.5; }
+      .quiz-textarea { width:100%; min-height:100px; background:var(--surface); border:2px solid var(--border); border-radius:14px; color:var(--text); font-family:inherit; font-size:0.95rem; padding:14px; resize:none; outline:none; transition:border-color 0.2s; margin-bottom:12px; line-height:1.5; }
+      .quiz-textarea:focus { border-color:var(--accent); }
+      .quiz-textarea::placeholder { color:var(--muted); }
+      .quiz-submit { width:100%; padding:14px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; border-radius:14px; color:#fff; font-family:inherit; font-size:1rem; font-weight:600; cursor:pointer; margin-bottom:12px; }
+      .quiz-submit:disabled { opacity:0.4; cursor:default; }
+      .quiz-feedback { border-radius:14px; padding:14px 16px; margin-bottom:12px; display:none; font-size:0.88rem; line-height:1.6; }
+      .quiz-feedback.richtig { background:#10b98115; border:1px solid #10b98144; }
+      .quiz-feedback.teilweise { background:#f59e0b15; border:1px solid #f59e0b44; }
+      .quiz-feedback.falsch { background:#ef444415; border:1px solid #ef444444; }
+      .quiz-verdict { font-weight:700; font-size:1rem; margin-bottom:6px; }
+      .richtig .quiz-verdict { color:var(--correct); }
+      .teilweise .quiz-verdict { color:var(--warning); }
+      .falsch .quiz-verdict { color:var(--danger); }
+      .quiz-kw-found { color:#86efac; font-size:0.82rem; margin-bottom:4px; }
+      .quiz-kw-miss { color:#fca5a5; font-size:0.82rem; margin-bottom:8px; }
+      .quiz-muster { color:var(--muted2); font-size:0.82rem; border-top:1px solid var(--border); padding-top:8px; margin-top:8px; }
+      .quiz-muster strong { color:#7dd3fc; }
+      .quiz-next { width:100%; padding:14px; background:var(--surface2); border:1px solid var(--border2); border-radius:14px; color:var(--text); font-family:inherit; font-size:1rem; font-weight:600; cursor:pointer; display:none; }
+      .quiz-result { text-align:center; padding:20px 0; }
+      .quiz-result-score { font-size:3rem; font-weight:700; margin:12px 0; }
+      .quiz-restart { padding:14px 32px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; border-radius:14px; color:#fff; font-family:inherit; font-size:1rem; font-weight:600; cursor:pointer; margin-top:8px; }
+    </style>
+  `;
+
+  function quizHTML() {
+    return quizStyles + `
+      <div class="quiz-wrap">
+        <div class="quiz-progress"><div class="quiz-progress-fill" id="qpfill" style="width:${(current/shuffled.length)*100}%"></div></div>
+        <div class="quiz-counter" id="qcounter">Frage ${current+1} von ${shuffled.length}</div>
+        <div class="quiz-scores">
+          <span class="qs-r">✅ ${richtig}</span>
+          <span class="qs-t">⚡ ${teilweise}</span>
+          <span class="qs-f">❌ ${falsch}</span>
+        </div>
+        <div class="quiz-frage">${shuffled[current].frage}</div>
+        <textarea class="quiz-textarea" id="quiz-answer" placeholder="Schreibe hier deine Antwort..."></textarea>
+        <button class="quiz-submit" id="quiz-submit" onclick="quizAbgeben()">✓ Antwort abgeben</button>
+        <div class="quiz-feedback" id="quiz-feedback">
+          <div class="quiz-verdict" id="quiz-verdict"></div>
+          <div class="quiz-kw-found" id="quiz-kw-found"></div>
+          <div class="quiz-kw-miss" id="quiz-kw-miss"></div>
+          <div class="quiz-muster" id="quiz-muster"></div>
+        </div>
+        <button class="quiz-next" id="quiz-next" onclick="quizWeiter()">Weiter →</button>
+      </div>
+    `;
+  }
+
+  function resultHTML() {
+    const total = shuffled.length;
+    const pts = richtig + teilweise * 0.5;
+    const pct = Math.round((pts/total)*100);
+    const emoji = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📚';
+    const msg = pct >= 80 ? 'Sehr gut! Du kennst den Stoff!' : pct >= 50 ? 'Gut! Noch etwas üben.' : 'Weitermachen – du schaffst das!';
+    return quizStyles + `
+      <div class="quiz-wrap">
+        <div class="quiz-result">
+          <div style="font-size:3rem">${emoji}</div>
+          <h2 style="margin:12px 0 4px">Quiz abgeschlossen!</h2>
+          <div class="quiz-result-score gradient-text">${pct}%</div>
+          <p style="color:var(--muted2);margin-bottom:20px">${msg}</p>
+          <div class="quiz-scores" style="justify-content:center">
+            <span class="qs-r">✅ ${richtig} Richtig</span>
+            <span class="qs-t">⚡ ${teilweise} Teilweise</span>
+            <span class="qs-f">❌ ${falsch} Falsch</span>
+          </div>
+          <button class="quiz-restart" onclick="renderQuiz(window._quizInhalt, window._quizBack)">🔄 Nochmal üben</button>
+        </div>
+      </div>
+    `;
+  }
+
+  window._quizInhalt = inhalt;
+  window._quizBack = backBtn;
+
+  window.quizAbgeben = function() {
+    const answer = document.getElementById('quiz-answer')?.value.trim();
+    if (!answer || answer.length < 3) return;
+    document.getElementById('quiz-submit').disabled = true;
+    document.getElementById('quiz-answer').disabled = true;
+
+    const { verdict, matched, missing } = bewerte(answer, shuffled[current]);
+    if (verdict === 'richtig') richtig++;
+    else if (verdict === 'teilweise') teilweise++;
+    else falsch++;
+
+    const icons = { richtig:'✅ Richtig!', teilweise:'⚡ Teilweise richtig', falsch:'❌ Falsch' };
+    const fb = document.getElementById('quiz-feedback');
+    fb.className = `quiz-feedback ${verdict}`;
+    document.getElementById('quiz-verdict').textContent = icons[verdict];
+    document.getElementById('quiz-kw-found').textContent = matched.length ? '✓ Erkannt: ' + matched.join(', ') : '';
+    document.getElementById('quiz-kw-miss').textContent = missing.length ? '✗ Fehlend: ' + missing.join(', ') : '';
+    document.getElementById('quiz-muster').innerHTML = `<strong>Musterantwort:</strong> ${shuffled[current].muster}`;
+    fb.style.display = 'block';
+    document.getElementById('quiz-next').style.display = 'block';
+    document.getElementById('quiz-submit').style.display = 'none';
+  };
+
+  window.quizWeiter = function() {
+    current++;
+    if (current >= shuffled.length) {
+      setDesktop(`<button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(window._quizInhalt.lernfeld_id)" style="margin-bottom:20px">${backBtn}</button>` + resultHTML());
+      setMobile(`<button class="mob-back" onclick="showLernfeldDetail(window._quizInhalt.lernfeld_id)">${backBtn}</button>` + resultHTML());
+      return;
+    }
+    const html = `<button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(window._quizInhalt.lernfeld_id)" style="margin-bottom:20px">${backBtn}</button><h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML();
+    const mobHtml = `<button class="mob-back" onclick="showLernfeldDetail(window._quizInhalt.lernfeld_id)">${backBtn}</button><div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML();
+    setDesktop(html);
+    setMobile(mobHtml);
+    // Re-enter support
+    document.querySelectorAll('.quiz-textarea').forEach(ta => ta.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') quizAbgeben(); }));
+  };
+
+  const wrapDesktop = `<button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${inhalt.lernfeld_id})" style="margin-bottom:20px">${backBtn}</button><h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML();
+  const wrapMobile = `<button class="mob-back" onclick="showLernfeldDetail(${inhalt.lernfeld_id})">${backBtn}</button><div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML();
+  setDesktop(wrapDesktop);
+  setMobile(wrapMobile);
+  document.querySelectorAll('.quiz-textarea').forEach(ta => ta.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') quizAbgeben(); }));
 }
 
 // ── FORTSCHRITT ───────────────────────────────────
@@ -623,249 +685,121 @@ async function showInhalte() {
   const { data: inhalte } = await db.from('inhalte').select('*, lernfelder(nummer, name)').order('lernfeld_id').order('reihenfolge');
   window._lf = lernfelder;
 
-  // NEU: Inhalte nach Lernfeld sortieren/gruppieren
-  const lfMap = {};
-  (lernfelder||[]).forEach(lf => lfMap[lf.id] = { ...lf, inhalte: [] });
-  (inhalte||[]).forEach(i => { if (lfMap[i.lernfeld_id]) lfMap[i.lernfeld_id].inhalte.push(i); });
+  const tableRows = (inhalte||[]).map(i=>`<tr>
+    <td>LF ${i.lernfelder?.nummer}</td>
+    <td>${i.titel}</td>
+    <td style="text-transform:capitalize">${i.typ}</td>
+    <td style="display:flex;gap:6px">
+      <button class="btn btn-secondary btn-sm" onclick="showInhalt(${i.id},${i.lernfeld_id})">👁</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteInhalt(${i.id})">🗑</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted2)">Noch keine Inhalte</td></tr>';
 
-  // Akkordeons für Desktop
-  const desktopAccordions = Object.values(lfMap).map(lf => {
-    const rows = lf.inhalte.map(i => `<tr>
-      <td style="width:60%"><strong>${i.titel}</strong></td>
-      <td style="text-transform:capitalize">${i.typ}</td>
-      <td style="display:flex;gap:6px;justify-content:flex-end">
-        <button class="btn btn-secondary btn-sm" title="Ansehen" onclick="showInhalt(${i.id},${lf.id})">👁</button>
-        <button class="btn btn-secondary btn-sm" title="Bearbeiten" onclick="editInhalt(${i.id})">✏️</button>
-        <button class="btn btn-danger btn-sm" title="Löschen" onclick="deleteInhalt(${i.id})">🗑</button>
-      </td>
-    </tr>`).join('');
-
-    return `
-      <div class="accordion" id="acc-${lf.id}">
-        <div class="accordion-header" onclick="toggleAcc(${lf.id})">
-          <div>LF ${lf.nummer}: ${lf.name} <span class="badge" style="margin-left:10px;background:var(--surface2);color:var(--muted)">${lf.inhalte.length} Inhalte</span></div>
-          <div class="accordion-icon">▼</div>
-        </div>
-        <div class="accordion-body">
-          ${lf.inhalte.length ? `
-            <table style="margin:0; width:100%; border:none;">
-              <tbody style="border:none;">${rows}</tbody>
-            </table>
-          ` : '<div style="padding:16px;color:var(--muted2);font-size:0.85rem">Noch keine Inhalte hinzugefügt.</div>'}
-        </div>
+  const mobCards = (inhalte||[]).map(i=>`
+    <div class="mob-inhalt-card">
+      <div class="mob-inhalt-type">📄</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.72rem;color:var(--accent);font-weight:700">LF ${i.lernfelder?.nummer}</div>
+        <div style="font-weight:600;font-size:0.9rem">${i.titel}</div>
       </div>
-    `;
-  }).join('');
-
-  // Akkordeons für Mobile
-  const mobileAccordions = Object.values(lfMap).map(lf => {
-    const cards = lf.inhalte.map(i => `
-      <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:0.9rem">${i.titel}</div>
-          <div style="font-size:0.75rem;color:var(--muted2);text-transform:capitalize;margin-top:2px">${i.typ}</div>
-        </div>
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="editInhaltMob(${i.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="deleteInhalt(${i.id})">🗑</button>
-        </div>
-      </div>
-    `).join('');
-
-    return `
-      <div class="accordion" id="mob-acc-${lf.id}">
-        <div class="accordion-header" style="padding:14px;font-size:0.9rem" onclick="toggleMobAcc(${lf.id})">
-          <div>LF ${lf.nummer} <span style="opacity:0.5">· ${lf.inhalte.length}</span></div>
-          <div class="accordion-icon">▼</div>
-        </div>
-        <div class="accordion-body">
-          ${lf.inhalte.length ? cards : '<div style="padding:12px 14px;color:var(--muted2);font-size:0.8rem">Leer</div>'}
-        </div>
-      </div>
-    `;
-  }).join('');
+      <button class="btn btn-danger btn-sm" onclick="deleteInhalt(${i.id})" style="flex-shrink:0">🗑</button>
+    </div>
+  `).join('') || '<div class="alert alert-info">Noch keine Inhalte</div>';
 
   setDesktop(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
       <h1>Inhalte verwalten</h1>
-      <button class="btn btn-primary" onclick="showContentForm()">+ Inhalt hinzufügen</button>
+      <button class="btn btn-primary" onclick="showAddForm()">+ Inhalt hinzufügen</button>
     </div>
     <div id="add-form"></div>
-    <div>${desktopAccordions}</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>LF</th><th>Titel</th><th>Typ</th><th>Aktionen</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table></div>
   `);
 
   setMobile(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div class="mob-greeting" style="font-size:1.1rem">✏️ Inhalte</div>
-      <button class="btn btn-primary btn-sm" onclick="showContentFormMob()">+ Neu</button>
+      <button class="btn btn-primary btn-sm" onclick="showAddFormMob()">+ Neu</button>
     </div>
     <div id="mob-add-form"></div>
-    <div>${mobileAccordions}</div>
+    ${mobCards}
   `);
 }
 
-// Hilfsfunktionen um die Akkordeons aufzuklappen
-function toggleAcc(id) { document.getElementById('acc-'+id).classList.toggle('open'); }
-function toggleMobAcc(id) { document.getElementById('mob-acc-'+id).classList.toggle('open'); }
-
-// NEU: Inhalt abrufen für den Edit-Modus
-async function editInhalt(id) {
-  const { data } = await db.from('inhalte').select('*').eq('id', id).maybeSingle();
-  if(data) { toggleAcc(data.lernfeld_id); showContentForm(data); }
-}
-async function editInhaltMob(id) {
-  const { data } = await db.from('inhalte').select('*').eq('id', id).maybeSingle();
-  if(data) { toggleMobAcc(data.lernfeld_id); showContentFormMob(data); }
-}
-
-// KOMBINIERT: Formular für Neu & Bearbeiten (Desktop)
-function showContentForm(inhalt = null) {
+function showAddForm() {
   const lf = window._lf || [];
-  const isEdit = !!inhalt;
-  const title = isEdit ? '✏️ Inhalt bearbeiten' : 'Neuen Inhalt hinzufügen';
-  const action = isEdit ? `saveInhalt(true, ${inhalt.id}, 'add-form', 'new-lf', 'new-typ', 'new-titel', 'new-text', 'new-kat')` : `saveInhalt(false, null, 'add-form', 'new-lf', 'new-typ', 'new-titel', 'new-text', 'new-kat')`;
-
-  // HTML als Standardauswahl gesetzt
-  const typVal = isEdit ? inhalt.typ : 'html';
-  const textVal = isEdit ? (inhalt.inhalt?.text || '') : '';
-  const titelVal = isEdit ? inhalt.titel : '';
-  const lfVal = isEdit ? inhalt.lernfeld_id : (lf[0]?.id || '');
-  const katVal = isEdit ? (inhalt.kategorie || '') : '';
-
   document.getElementById('add-form').innerHTML = `
-    <div class="card" style="margin-bottom:20px; ${isEdit ? 'border-color:var(--accent)' : ''}">
-      <h3 style="margin-bottom:16px; ${isEdit ? 'color:var(--accent)' : ''}">${title}</h3>
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin-bottom:16px">Neuen Inhalt hinzufügen</h3>
       <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Lernfeld</label>
-          <select class="form-input" id="new-lf">
-            ${lf.map(l=>`<option value="${l.id}" ${l.id == lfVal ? 'selected' : ''}>LF ${l.nummer}: ${l.name}</option>`).join('')}
-          </select>
+          <select class="form-input" id="new-lf">${lf.map(l=>`<option value="${l.id}">LF ${l.nummer}: ${l.name}</option>`).join('')}</select>
         </div>
         <div class="form-group">
           <label class="form-label">Typ</label>
-          <select class="form-input" id="new-typ" onchange="updateTextareaLabel('new-typ', 'label-new-text', 'new-text')">
-            <option value="html" ${typVal === 'html' ? 'selected' : ''}>🌐 Externe HTML-Datei</option>
-            <option value="text" ${typVal === 'text' ? 'selected' : ''}>📄 Text / Zusammenfassung</option>
-            <option value="quiz" ${typVal === 'quiz' ? 'selected' : ''}>❓ Quiz</option>
-            <option value="lernkarten" ${typVal === 'lernkarten' ? 'selected' : ''}>🃏 Lernkarten</option>
+          <select class="form-input" id="new-typ">
+            <option value="text">📄 Text</option>
+            <option value="quiz">❓ Quiz</option>
+            <option value="lernkarten">🃏 Lernkarten</option>
           </select>
         </div>
       </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label class="form-label">Titel</label>
-          <input class="form-input" type="text" id="new-titel" value="${titelVal}" placeholder="z.B. Materialfluss – Grundlagen">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Kategorie (Optional)</label>
-          <input class="form-input" type="text" id="new-kat" value="${katVal}" placeholder="z.B. Übungsarbeiten, Klausuren...">
-        </div>
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input class="form-input" type="text" id="new-titel" placeholder="z.B. Materialfluss – Grundlagen">
       </div>
       <div class="form-group">
-        <label class="form-label" id="label-new-text">Dateipfad zur HTML-Datei</label>
-        <textarea class="form-input" id="new-text" rows="2" placeholder="z.B. lernfelder/4/1_materialfluss.html">${textVal}</textarea>
+        <label class="form-label">Inhalt (**fett** = wichtige Begriffe)</label>
+        <textarea class="form-input" id="new-text" rows="6" placeholder="Schreibe hier den Lerninhalt..."></textarea>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="btn btn-primary" onclick="${action}">💾 ${isEdit ? 'Änderungen speichern' : 'Speichern'}</button>
+        <button class="btn btn-primary" onclick="saveInhalt('add-form','new-lf','new-typ','new-titel','new-text')">💾 Speichern</button>
         <button class="btn btn-secondary" onclick="document.getElementById('add-form').innerHTML=''">Abbrechen</button>
       </div>
       <div id="save-msg" style="margin-top:12px"></div>
     </div>
   `;
-  updateTextareaLabel('new-typ', 'label-new-text', 'new-text');
 }
 
-// KOMBINIERT: Formular für Neu & Bearbeiten (Mobile)
-function showContentFormMob(inhalt = null) {
+function showAddFormMob() {
   const lf = window._lf || [];
-  const isEdit = !!inhalt;
-  const title = isEdit ? '✏️ Bearbeiten' : 'Neuen Inhalt';
-  const action = isEdit ? `saveInhalt(true, ${inhalt.id}, 'mob-add-form', 'mob-new-lf', 'mob-new-typ', 'mob-new-titel', 'mob-new-text', 'mob-new-kat')` : `saveInhalt(false, null, 'mob-add-form', 'mob-new-lf', 'mob-new-typ', 'mob-new-titel', 'mob-new-text', 'mob-new-kat')`;
-
-  const typVal = isEdit ? inhalt.typ : 'html';
-  const textVal = isEdit ? (inhalt.inhalt?.text || '') : '';
-  const titelVal = isEdit ? inhalt.titel : '';
-  const lfVal = isEdit ? inhalt.lernfeld_id : (lf[0]?.id || '');
-  const katVal = isEdit ? (inhalt.kategorie || '') : '';
-
   document.getElementById('mob-add-form').innerHTML = `
-    <div class="card" style="margin-bottom:16px; ${isEdit ? 'border-color:var(--accent)' : ''}">
-      <h3 style="margin-bottom:14px;font-size:1rem; ${isEdit ? 'color:var(--accent)' : ''}">${title}</h3>
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="margin-bottom:14px;font-size:1rem">Neuen Inhalt</h3>
       <div class="form-group">
         <label class="form-label">Lernfeld</label>
-        <select class="form-input" id="mob-new-lf">
-          ${lf.map(l=>`<option value="${l.id}" ${l.id == lfVal ? 'selected' : ''}>LF ${l.nummer}: ${l.name}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Typ</label>
-        <select class="form-input" id="mob-new-typ" onchange="updateTextareaLabel('mob-new-typ', 'mob-label-new-text', 'mob-new-text')">
-          <option value="html" ${typVal === 'html' ? 'selected' : ''}>🌐 HTML</option>
-          <option value="text" ${typVal === 'text' ? 'selected' : ''}>📄 Text</option>
-          <option value="quiz" ${typVal === 'quiz' ? 'selected' : ''}>❓ Quiz</option>
-          <option value="lernkarten" ${typVal === 'lernkarten' ? 'selected' : ''}>🃏 Karten</option>
-        </select>
+        <select class="form-input" id="mob-new-lf">${lf.map(l=>`<option value="${l.id}">LF ${l.nummer}: ${l.name}</option>`).join('')}</select>
       </div>
       <div class="form-group">
         <label class="form-label">Titel</label>
-        <input class="form-input" type="text" id="mob-new-titel" value="${titelVal}" placeholder="Titel des Inhalts">
+        <input class="form-input" type="text" id="mob-new-titel" placeholder="Titel des Inhalts">
       </div>
       <div class="form-group">
-        <label class="form-label">Kategorie (Optional)</label>
-        <input class="form-input" type="text" id="mob-new-kat" value="${katVal}" placeholder="z.B. Übungen">
-      </div>
-      <div class="form-group">
-        <label class="form-label" id="mob-label-new-text">Dateipfad zur HTML-Datei</label>
-        <textarea class="form-input" id="mob-new-text" rows="2" placeholder="z.B. lernfelder/4/1_materialfluss.html">${textVal}</textarea>
+        <label class="form-label">Inhalt</label>
+        <textarea class="form-input" id="mob-new-text" rows="5" placeholder="Lerninhalt hier..."></textarea>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-primary" style="flex:1" onclick="${action}">💾 Speichern</button>
+        <button class="btn btn-primary" style="flex:1" onclick="saveInhalt('mob-add-form','mob-new-lf',null,'mob-new-titel','mob-new-text')">💾 Speichern</button>
         <button class="btn btn-secondary" onclick="document.getElementById('mob-add-form').innerHTML=''">✕</button>
       </div>
       <div id="mob-save-msg" style="margin-top:10px"></div>
     </div>
   `;
-  updateTextareaLabel('mob-new-typ', 'mob-label-new-text', 'mob-new-text');
 }
 
-function updateTextareaLabel(typId, labelId, textId) {
-  const typ = document.getElementById(typId).value;
-  const label = document.getElementById(labelId);
-  const textarea = document.getElementById(textId);
-  if (typ === 'html') {
-    label.innerText = 'Dateipfad zur HTML-Datei';
-    textarea.placeholder = 'z.B. lernfelder/4/1_materialfluss.html';
-    textarea.rows = 2;
-  } else {
-    label.innerText = 'Inhalt (**fett** für wichtige Begriffe)';
-    textarea.placeholder = 'Schreibe hier den Lerninhalt...';
-    textarea.rows = 6;
-  }
-}
-
-// Angepasste Speichern-Funktion für Neu und Update
-async function saveInhalt(isEdit, inhaltId, formId, lfElId, typElId, titelElId, textElId, katElId) {
+async function saveInhalt(formId, lfElId, typElId, titelElId, textElId) {
   const lfId = document.getElementById(lfElId)?.value;
-  const typ = typElId ? document.getElementById(typElId)?.value : 'html';
+  const typ = typElId ? document.getElementById(typElId)?.value : 'text';
   const titel = document.getElementById(titelElId)?.value.trim();
   const text = document.getElementById(textElId)?.value.trim();
-  const kategorie = document.getElementById(katElId)?.value.trim() || null;
   const msgId = formId === 'add-form' ? 'save-msg' : 'mob-save-msg';
-
   if (!titel || !text) return document.getElementById(msgId).innerHTML = '<div class="alert alert-error">Bitte Titel und Inhalt ausfüllen.</div>';
-
-  let error;
-  if (isEdit) {
-    const res = await db.from('inhalte').update({ lernfeld_id:lfId, typ, titel, inhalt:{ text }, kategorie }).eq('id', inhaltId);
-    error = res.error;
-  } else {
-    const res = await db.from('inhalte').insert({ lernfeld_id:lfId, typ, titel, inhalt:{ text }, erstellt_von:USER.id, kategorie });
-    error = res.error;
-  }
-
+  const { error } = await db.from('inhalte').insert({ lernfeld_id:lfId, typ, titel, inhalt:{ text }, erstellt_von:USER.id });
   if (error) return document.getElementById(msgId).innerHTML = `<div class="alert alert-error">${error.message}</div>`;
-  showInhalte(); // Lädt die Liste neu
+  showInhalte();
 }
 
 async function deleteInhalt(id) {
@@ -880,89 +814,13 @@ async function showAdmin() {
   setDesktop('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
   setMobile('<div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>');
 
-  // Lade alle benötigten Daten auf einmal
-  const [
-    { data: users }, 
-    { data: lernfelder }, 
-    { count: uCount }, 
-    { count: iCount },
-    { data: allProgress },
-    { data: allInhalte }
-  ] = await Promise.all([
+  const [{ data: users }, { data: lernfelder }, { count: uCount }, { count: iCount }] = await Promise.all([
     db.from('profiles').select('*').order('created_at', { ascending:false }),
     db.from('lernfelder').select('id, nummer, name, freigeschaltet').order('nummer'),
     db.from('profiles').select('*', { count:'exact', head:true }),
     db.from('inhalte').select('*', { count:'exact', head:true }),
-    db.from('fortschritt').select('user_id, inhalt_id, inhalte(lernfeld_id)').eq('abgeschlossen', true), // Erledigte
-    db.from('inhalte').select('id, lernfeld_id') // Um zu wissen wie viele es insgesamt gibt
   ]);
 
-  // 1. Zählen wie viele Inhalte jedes Lernfeld gesamt hat
-  const lfTotals = {};
-  (allInhalte || []).forEach(i => {
-    lfTotals[i.lernfeld_id] = (lfTotals[i.lernfeld_id] || 0) + 1;
-  });
-
-  // 2. Zählen wie viele Inhalte jeder User pro Lernfeld erledigt hat
-  const userStats = {}; // Struktur: { "userId": { "lfId": 3 } }
-  (allProgress || []).forEach(p => {
-    const lfId = p.inhalte?.lernfeld_id;
-    if (lfId) {
-      if (!userStats[p.user_id]) userStats[p.user_id] = {};
-      userStats[p.user_id][lfId] = (userStats[p.user_id][lfId] || 0) + 1;
-    }
-  });
-
-  // 3. HTML für Statistiken generieren
-  let statsHTML = '';
-  (users || []).forEach(u => {
-    const uStats = userStats[u.id] || {};
-    let hasStartedSomething = false;
-    
-    const lfRows = (lernfelder || []).map(lf => {
-      const total = lfTotals[lf.id] || 0;
-      const done = uStats[lf.id] || 0;
-      
-      // Nur anzeigen, wenn das Lernfeld Inhalte hat und der User was darin gemacht hat
-      if (total === 0 || done === 0) return ''; 
-      hasStartedSomething = true;
-      
-      const prozent = Math.round((done / total) * 100);
-      const isSuccess = prozent === 100;
-      const statusColor = isSuccess ? 'var(--correct)' : 'var(--warning)';
-      const statusText = isSuccess ? '✅ Abgeschlossen' : '⏳ In Bearbeitung / Misserfolg';
-      
-      return `
-        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:0.88rem;">
-          <div>
-            <div style="font-weight:600">LF ${lf.nummer}: ${lf.name}</div>
-            <div style="font-size:0.75rem; color:var(--muted2); margin-top:2px;">${statusText}</div>
-          </div>
-          <div style="text-align:right">
-            <span style="color:${statusColor}; font-weight:700;">${done} / ${total} erledigt</span>
-            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${prozent}%</div>
-          </div>
-        </div>
-      `;
-    }).filter(r => r !== '').join('');
-
-    if (hasStartedSomething) {
-      statsHTML += `
-        <div class="card" style="margin-bottom:16px;">
-          <h3 style="font-size:1.05rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-            👤 ${u.username} <span class="badge badge-${u.role}">${u.role}</span>
-          </h3>
-          ${lfRows}
-        </div>
-      `;
-    }
-  });
-
-  if (!statsHTML) {
-    statsHTML = '<div class="alert alert-info">Es wurden noch keine Lerninhalte bearbeitet.</div>';
-  }
-
-  // Admin Panel Basis (wie vorher)
   const lfToggles = (lernfelder||[]).map(lf => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
       <div>
@@ -1021,16 +879,9 @@ async function showAdmin() {
       <div class="stat-card"><div class="stat-value gradient-text">${lernfelder?.length||0}</div><div class="stat-label">📚 Lernfelder</div></div>
       <div class="stat-card"><div class="stat-value gradient-text">${iCount||0}</div><div class="stat-label">📄 Inhalte</div></div>
     </div>
-    
-    <h2 style="margin-bottom:16px">📊 Detaillierte Nutzer-Statistiken</h2>
-    <div style="margin-bottom:32px">
-      ${statsHTML}
-    </div>
-
     <h2 style="margin-bottom:6px">🔓 Lernfelder freischalten</h2>
     <p style="color:var(--muted2);font-size:0.85rem;margin-bottom:16px">Gesperrte Lernfelder sind nur für Admins und Mods sichtbar.</p>
     <div class="card" style="margin-bottom:32px">${lfToggles}</div>
-    
     <h2 style="margin-bottom:16px">👥 Benutzerverwaltung</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>Vorname</th><th>Rolle</th><th>Registriert</th><th>Rolle ändern</th></tr></thead>
@@ -1045,13 +896,8 @@ async function showAdmin() {
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${uCount||0}</div><div class="mob-stat-lbl">👥 Benutzer</div></div>
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${iCount||0}</div><div class="mob-stat-lbl">📄 Inhalte</div></div>
     </div>
-    
-    <div class="mob-section">📊 Nutzer-Statistiken</div>
-    <div style="margin-bottom:20px">${statsHTML}</div>
-
     <div class="mob-section">🔓 Lernfelder freischalten</div>
     <div class="card" style="margin-bottom:20px">${lfToggles}</div>
-    
     <div class="mob-section">👥 Benutzer</div>
     ${mobUserCards}
     <div id="role-msg" style="margin-top:12px"></div>
@@ -1063,17 +909,11 @@ async function toggleLF(lfId, value) {
   if (error) alert('Fehler: ' + error.message);
 }
 
-// Besserer Fehler-Dialog bei Rechteproblemen!
 async function changeRole(userId, newRole) {
   const { error } = await db.from('profiles').update({ role:newRole }).eq('id', userId);
-  
-  if (error) {
-    alert("🚨 FEHLER: Rolle konnte nicht geändert werden!\n\nGrund: Supabase blockiert das Ändern aus Sicherheitsgründen (Row Level Security).\n\nDu musst zuerst in Supabase im 'SQL Editor' die passende Policy erstellen (wie von Gemini beschrieben).");
-    showAdmin(); // Seite neuladen um die Select-Box zurückzusetzen
-  } else {
-    const els = document.querySelectorAll('#role-msg');
-    els.forEach(el => { el.innerHTML = `<div class="alert alert-success">Rolle geändert ✅</div>`; setTimeout(() => el.innerHTML = '', 3000); });
-  }
+  const els = document.querySelectorAll('#role-msg');
+  const msg = error ? `<div class="alert alert-error">Fehler: ${error.message}</div>` : `<div class="alert alert-success">Rolle geändert ✅</div>`;
+  els.forEach(el => { el.innerHTML = msg; setTimeout(() => el.innerHTML = '', 3000); });
 }
 </script>
 </body>
