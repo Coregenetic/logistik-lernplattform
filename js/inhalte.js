@@ -1,5 +1,4 @@
 // ── INHALTE VERWALTEN (MOD+) ─────────────────────────────────
-// Verwaltet Inhalte für Lernfelder UND Fach-Kapitel
 
 async function showInhalte() {
   setActive('lnk-inhalte', 'bn-mod');
@@ -77,7 +76,8 @@ async function showInhalte() {
         <td>${typeIcon[i.typ]||'📄'} <span style="color:var(--muted2);font-size:0.8rem;text-transform:capitalize">${i.typ}</span></td>
         <td style="font-weight:500">${i.titel}</td>
         <td style="display:flex;gap:6px">
-          <button class="btn btn-danger btn-sm" onclick="deleteFachInhalt(${i.id})">🗑</button>
+          <button class="btn btn-secondary btn-sm" onclick="showFachInhaltEdit(${i.id},${k.id},${fach.id})">✏️</button>
+          <button class="btn btn-danger btn-sm"    onclick="deleteFachInhalt(${i.id})">🗑</button>
         </td>
       </tr>`).join('');
       return `
@@ -114,13 +114,13 @@ async function showInhalte() {
     </div>`).join('') || '<div class="alert alert-info">Keine Lernfeld-Inhalte</div>';
 
   const mobFachCards = (fachInhalte||[]).map(i => `
-    <div class="mob-inhalt-card">
+    <div class="mob-inhalt-card" onclick="showFachInhaltEdit(${i.id},${i.kapitel_id},null)">
       <div class="mob-inhalt-type">${typeIcon[i.typ]||'📄'}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:0.72rem;color:var(--accent);font-weight:700">${i.fach_kapitel?.faecher?.name}</div>
+        <div style="font-size:0.72rem;color:var(--accent);font-weight:700">${i.fach_kapitel?.faecher?.name} · ${i.fach_kapitel?.name}</div>
         <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.titel}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteFachInhalt(${i.id})" style="flex-shrink:0">🗑</button>
+      <span style="color:var(--muted);font-size:1rem;flex-shrink:0">✏️</span>
     </div>`).join('') || '<div class="alert alert-info">Keine Fach-Inhalte</div>';
 
   setDesktop(`
@@ -276,6 +276,105 @@ async function deleteInhalt(id) {
 }
 
 async function deleteFachInhalt(id) {
+  if (!confirm('Inhalt wirklich löschen?')) return;
+  await db.from('fach_inhalte').delete().eq('id', id);
+  showInhalte();
+}
+
+// ── FACH-INHALT BEARBEITEN ────────────────────────────────────
+async function showFachInhaltEdit(inhaltId, kapitelId, fachId) {
+  const { data: i } = await db.from('fach_inhalte')
+    .select('*, fach_kapitel(id, name, fach_id, faecher(id, name))')
+    .eq('id', inhaltId).maybeSingle();
+  if (!i) return;
+
+  // fachId aus DB holen falls nicht übergeben (mobile-Pfad)
+  const resolvedFachId = fachId || i.fach_kapitel?.fach_id;
+
+  const isQuiz = i.typ === 'quiz';
+  const currentText = i.inhalt?.text || '';
+
+  const quizHinweis = isQuiz ? `
+    <div class="alert alert-info" style="margin-bottom:16px">
+      ℹ️ Quiz-Inhalte kannst du hier nicht direkt bearbeiten. 
+      Nutze <strong>⚡ Importieren</strong>, um ein neues Quiz hochzuladen und das alte zu löschen.
+    </div>` : '';
+
+  const formHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <button class="btn btn-secondary btn-sm" onclick="showInhalte()">← Zurück</button>
+      <h1 style="font-size:1.2rem;margin:0">Inhalt bearbeiten</h1>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:0.75rem;background:var(--surface2);padding:4px 10px;border-radius:99px;color:var(--muted2)">
+          ${i.fach_kapitel?.faecher?.name} → ${i.fach_kapitel?.name}
+        </span>
+        <span style="font-size:0.75rem;background:var(--surface2);padding:4px 10px;border-radius:99px;color:var(--muted2);text-transform:capitalize">
+          ${i.typ}
+        </span>
+      </div>
+
+      ${quizHinweis}
+
+      <div class="form-group">
+        <label class="form-label">Titel</label>
+        <input class="form-input" type="text" id="edit-fi-titel" value="${i.titel.replace(/"/g,'&quot;')}">
+      </div>
+
+      ${!isQuiz ? `
+      <div class="form-group">
+        <label class="form-label">Inhalt (<code style="font-size:0.8rem">**fett**</code> = wichtige Begriffe)</label>
+        <textarea class="form-input" id="edit-fi-text" rows="10">${currentText}</textarea>
+      </div>` : ''}
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveFachInhaltEdit(${i.id},${resolvedFachId},${kapitelId},${isQuiz})">
+          💾 Speichern
+        </button>
+        <button class="btn btn-danger" onclick="deleteFachInhaltFromEdit(${i.id})">
+          🗑 Löschen
+        </button>
+      </div>
+      <div id="edit-fi-msg" style="margin-top:12px"></div>
+    </div>
+
+    ${isQuiz ? `
+    <div class="card">
+      <h3 style="margin-bottom:12px">Quiz-Fragen (Vorschau)</h3>
+      ${(i.inhalt?.fragen||[]).map((f,idx) => `
+        <div style="padding:12px 0;${idx>0?'border-top:1px solid var(--border)':''}">
+          <div style="font-weight:600;font-size:0.88rem;margin-bottom:3px">Frage ${idx+1}: ${f.frage}</div>
+          <div style="font-size:0.78rem;color:var(--muted2)">Muster: ${f.muster?.substring(0,80)}${f.muster?.length>80?'...':''}</div>
+          <div style="font-size:0.75rem;color:var(--accent);margin-top:3px">${f.keywords?.length||0} Keyword-Gruppen · mind. ${f.required||1} erkannt</div>
+        </div>`).join('')}
+    </div>` : ''}
+  `;
+
+  setDesktop(formHTML);
+  setMobile(formHTML);
+}
+
+async function saveFachInhaltEdit(id, fachId, kapitelId, isQuiz) {
+  const titel  = document.getElementById('edit-fi-titel')?.value.trim();
+  const msgEl  = document.getElementById('edit-fi-msg');
+  if (!titel) return msgEl.innerHTML = '<div class="alert alert-error">Titel darf nicht leer sein.</div>';
+
+  const updates = { titel };
+  if (!isQuiz) {
+    const text = document.getElementById('edit-fi-text')?.value.trim();
+    if (!text) return msgEl.innerHTML = '<div class="alert alert-error">Inhalt darf nicht leer sein.</div>';
+    updates.inhalt = { text };
+  }
+
+  const { error } = await db.from('fach_inhalte').update(updates).eq('id', id);
+  if (error) return msgEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+  msgEl.innerHTML = '<div class="alert alert-success">✅ Gespeichert!</div>';
+  setTimeout(() => showInhalte(), 1200);
+}
+
+async function deleteFachInhaltFromEdit(id) {
   if (!confirm('Inhalt wirklich löschen?')) return;
   await db.from('fach_inhalte').delete().eq('id', id);
   showInhalte();
