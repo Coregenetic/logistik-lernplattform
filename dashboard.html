@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Dashboard – Lernplattform Logistik</title>
+<title>Dashboard – Logistik-Lernplattform</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-/* ── BASIS UPGRADES ────────────────────────────── */
+/* ── BASIS & LAYOUT ────────────────────────────── */
 :root {
   --sidebar-width: 260px;
   --header-height: 64px;
@@ -22,82 +22,95 @@
 input:checked + .toggle-slider { background:var(--correct); }
 input:checked + .toggle-slider:before { transform:translateX(18px); }
 
-/* ── MOBILE BOTTOM NAV ──────────────────────────── */
-.bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
+/* ── NEU: LERNFELD KATEGORIE AKKORDEON ─────────── */
+.cat-group {
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   background: var(--surface);
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.cat-group:hover { box-shadow: var(--shadow-sm); }
+.cat-group.closed .cat-body { display: none; }
+
+.cat-header {
+  padding: 14px 18px;
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.cat-header:hover { background: var(--surface2); }
+
+.cat-title-wrap { display: flex; align-items: center; gap: 12px; }
+.cat-icon { font-size: 1.2rem; }
+.cat-name { font-weight: 700; font-size: 0.95rem; color: var(--text); }
+.cat-count { font-size: 0.75rem; color: var(--muted2); background: var(--surface2); padding: 2px 8px; border-radius: 99px; }
+
+.cat-chevron { 
+  font-size: 0.7rem; 
+  color: var(--muted); 
+  transition: transform 0.3s; 
+}
+.cat-group.open .cat-chevron { transform: rotate(180deg); }
+
+.cat-body {
+  padding: 12px;
+  background: var(--bg);
   border-top: 1px solid var(--border);
-  z-index: 200;
+}
+
+/* ── STEP CARDS (INHALTE) ──────────────────────── */
+.step-card { 
+  display: flex; 
+  align-items: center; 
+  gap: 16px; 
+  background: var(--surface); 
+  border: 1px solid var(--border); 
+  padding: 14px; 
+  border-radius: 10px; 
+  margin-bottom: 8px; 
+  cursor: pointer; 
+  transition: 0.2s; 
+}
+.step-card:last-child { margin-bottom: 0; }
+.step-card:hover { border-color: var(--accent); transform: translateX(4px); }
+.step-number { 
+  width: 30px; height: 30px; 
+  border-radius: 8px; 
+  background: var(--surface2); 
+  color: var(--muted2); 
+  display: flex; align-items: center; justify-content: center; 
+  font-weight: 700; font-size: 0.8rem; flex-shrink: 0; 
+}
+.step-card.done .step-number { background: var(--correct); color: #fff; }
+.step-info { flex: 1; min-width: 0; }
+.step-title { font-weight: 600; font-size: 0.92rem; margin-bottom: 2px; }
+.step-meta { font-size: 0.72rem; color: var(--muted2); text-transform: capitalize; }
+
+/* ── MOBILE ADAPTIONEN ─────────────────────────── */
+.bottom-nav {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-top: 1px solid var(--border); z-index: 200;
   padding-bottom: env(safe-area-inset-bottom);
 }
-.bottom-nav-inner { display: flex; height: 60px; }
+.bottom-nav-inner { display: flex; height: 58px; }
 .bn-item {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; border: none; background: none; color: var(--muted); font-family: inherit;
-  font-size: 0.7rem; font-weight: 500; cursor: pointer; transition: 0.2s;
+  gap: 3px; border: none; background: none; color: var(--muted); font-size: 0.68rem; font-weight: 500; cursor: pointer; transition: 0.15s;
 }
 .bn-item.active { color: var(--accent); }
-.bn-icon { font-size: 1.4rem; line-height: 1; }
+.bn-icon { font-size: 1.3rem; line-height: 1; }
 
-/* ── MOBILE HEADER ──────────────────────────────── */
 .mob-header {
   display: none; position: sticky; top: 0; z-index: 100;
   background: var(--surface); border-bottom: 1px solid var(--border);
-  padding: 0 16px; height: 56px; align-items: center; justify-content: space-between;
+  padding: 0 16px; height: 52px; align-items: center; justify-content: space-between;
 }
-.mob-header-brand { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; }
-.mob-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.85rem; font-weight: 700; color: #fff; border: none;
-}
-
-/* ── CATEGORY HEADERS & DESIGN ─────────────────── */
-.category-section { margin-bottom: 32px; }
-.category-header {
-  position: sticky; top: 0; z-index: 10;
-  background: var(--bg); padding: 12px 0;
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 16px; border-bottom: 1px solid transparent;
-}
-.category-header.sticky { border-color: var(--border); background: var(--surface); padding: 12px 16px; margin: 0 -16px 16px; }
-.category-title { font-size: 1.1rem; font-weight: 700; color: var(--text); flex: 1; }
-.category-badge { font-size: 0.7rem; background: var(--surface2); color: var(--muted); padding: 4px 10px; border-radius: 99px; }
-
-/* ── STEP CARDS ─────────────────────────────────── */
-.step-card {
-  display: flex; align-items: center; gap: 16px; background: var(--surface);
-  border: 1px solid var(--border); padding: 18px; border-radius: 16px;
-  margin-bottom: 12px; cursor: pointer; transition: all 0.2s ease;
-  position: relative; overflow: hidden;
-}
-.step-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.step-card.done { border-color: var(--correct-light); }
-.step-number {
-  width: 36px; height: 36px; border-radius: 12px;
-  background: var(--surface2); color: var(--muted2);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 0.9rem; flex-shrink: 0;
-}
-.step-card.done .step-number { background: var(--correct); color: #fff; }
-
-/* ── IFRAME ─────────────────────────────────────── */
-.iframe-container {
-  width: 100%; height: 75vh; border: 1px solid var(--border);
-  border-radius: 20px; background: #fff; overflow: hidden; position: relative;
-}
-.iframe-container iframe { width: 100%; height: 100%; border: none; }
-.exit-fs-btn { display: none; position: absolute; top: 20px; right: 20px; z-index: 999; }
-.iframe-container:fullscreen .exit-fs-btn { display: flex; }
-
-/* ── ACCORDION ──────────────────────────────────── */
-.accordion { border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; overflow: hidden; background: var(--surface); }
-.accordion-header { padding: 18px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
-.accordion-body { display: none; background: var(--bg); border-top: 1px solid var(--border); }
-.accordion.open .accordion-body { display: block; }
+.mob-main { display: none; padding: 16px 16px 100px; min-height: calc(100vh - 52px); }
 
 /* ── RESPONSIVE ─────────────────────────────────── */
 @media (min-width: 701px) {
@@ -107,7 +120,7 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 @media (max-width: 700px) {
   .navbar, .layout { display: none !important; }
   .mob-header { display: flex !important; }
-  .mob-main { display: block !important; padding: 16px 16px 100px; }
+  .mob-main { display: block !important; }
   .bottom-nav { display: block !important; }
 }
 </style>
@@ -119,7 +132,7 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
   <div class="navbar-brand gradient-text">🚛 Lernplattform Logistik</div>
   <div class="navbar-nav">
     <span class="nav-user">
-      <span id="nav-name" style="font-size:0.88rem; font-weight:600"></span>
+      <span id="nav-name" style="font-size:0.88rem"></span>
       <span id="nav-badge"></span>
     </span>
     <button class="btn btn-secondary btn-sm" id="btn-logout">Abmelden</button>
@@ -134,8 +147,8 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 
 <!-- ── MOBILE HEADER ──────────────────────────── -->
 <div class="mob-header">
-  <div class="mob-header-brand gradient-text">🚛 Logistik Lernportal</div>
-  <div class="mob-header-right" style="display:flex; gap:10px; align-items:center">
+  <div class="mob-header-brand gradient-text">🚛 Lernplattform</div>
+  <div class="mob-header-right">
     <span id="mob-badge"></span>
     <button class="mob-avatar" id="mob-avatar"></button>
   </div>
@@ -154,22 +167,14 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 <script>
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-let USER = null, PROFILE = null, KATEGORIEN = [];
+let USER = null, PROFILE = null;
 
 // ── INIT ─────────────────────────────────────────
 db.auth.getSession().then(async ({ data: { session } }) => {
   if (!session) return window.location.href = 'index.html';
   USER = session.user;
-  
-  // Profile & Kategorien laden
-  const [profileRes, katRes] = await Promise.all([
-    db.from('profiles').select('*').eq('id', USER.id).maybeSingle(),
-    db.from('kategorien').select('*').order('name')
-  ]);
-
-  PROFILE = profileRes.data;
-  KATEGORIEN = katRes.data || [];
-  
+  const { data } = await db.from('profiles').select('*').eq('id', USER.id).maybeSingle();
+  PROFILE = data;
   if (!PROFILE) return window.location.href = 'index.html';
 
   setupUI();
@@ -179,31 +184,28 @@ db.auth.getSession().then(async ({ data: { session } }) => {
 function setupUI() {
   const roleColors = { admin:'badge-admin', mod:'badge-mod', user:'badge-user' };
   const initials = PROFILE.username.substring(0,2).toUpperCase();
-
   document.getElementById('nav-name').textContent = PROFILE.username;
   document.getElementById('nav-badge').innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
   document.getElementById('mob-badge').innerHTML = `<span class="badge ${roleColors[PROFILE.role]}">${PROFILE.role}</span>`;
   document.getElementById('mob-avatar').textContent = initials;
   document.getElementById('mob-avatar').onclick = () => { if (confirm('Abmelden?')) { db.auth.signOut(); window.location.href = 'index.html'; } };
-
   buildSidebar();
   buildBottomNav();
 }
 
 document.getElementById('btn-logout').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = 'index.html'; });
 
-// ── NAVIGATION BUILDERS ──────────────────────────
+// ── NAVIGATION ──────────────────────────────────
 function buildSidebar() {
   const isMod = ['admin','mod'].includes(PROFILE.role);
   const isAdmin = PROFILE.role === 'admin';
   document.getElementById('sidebar').innerHTML = `
-    <div class="sidebar-title">Menü</div>
+    <div class="sidebar-title">Navigation</div>
     <button class="sidebar-link active" id="lnk-home" onclick="showHome()"><span class="sidebar-icon">🏠</span>Dashboard</button>
     <button class="sidebar-link" id="lnk-lf" onclick="showLernfelder()"><span class="sidebar-icon">📚</span>Lernfelder</button>
-    <button class="sidebar-link" id="lnk-fp" onclick="showFortschritt()"><span class="sidebar-icon">📊</span>Fortschritt</button>
-    ${isMod ? `<div class="sidebar-title" style="margin-top:20px">Redaktion</div>
-    <button class="sidebar-link" id="lnk-inhalte" onclick="showInhalte()"><span class="sidebar-icon">✏️</span>Inhalte pflegen</button>` : ''}
-    ${isAdmin ? `<button class="sidebar-link" id="lnk-admin" onclick="showAdmin()"><span class="sidebar-icon">⚙️</span>Verwaltung</button>` : ''}
+    <button class="sidebar-link" id="lnk-fp" onclick="showFortschritt()"><span class="sidebar-icon">📊</span>Mein Fortschritt</button>
+    ${isMod ? `<div class="sidebar-title" style="margin-top:12px">Verwaltung</div>
+    <button class="sidebar-link" id="lnk-inhalte" onclick="showInhalte()"><span class="sidebar-icon">✏️</span>Inhalte bearbeiten</button>` : ''}
   `;
 }
 
@@ -226,144 +228,201 @@ function setActive(dId, mId) {
   if (mId) document.getElementById(mId)?.classList.add('active');
 }
 
-// ── DASHBOARD HOME ───────────────────────────────
+// ── HOME & LERNFELDER ────────────────────────────
 async function showHome() {
   setActive('lnk-home', 'bn-home');
-  const [{ count: lfCount }, { count: inhCount }, { count: fpCount }, { data: recentLf }] = await Promise.all([
+  const isMod = ['admin','mod'].includes(PROFILE.role);
+  const [{ count: lfCount }, { count: fpCount }, { data: recent }] = await Promise.all([
     db.from('lernfelder').select('*', { count:'exact', head:true }),
-    db.from('inhalte').select('*', { count:'exact', head:true }),
     db.from('fortschritt').select('*', { count:'exact', head:true }).eq('user_id', USER.id).eq('abgeschlossen', true),
     db.from('lernfelder').select('*').order('nummer').limit(4)
   ]);
 
-  const htmlD = `
-    <h1 style="margin-bottom:8px">Guten Tag, <span class="gradient-text">${PROFILE.username}</span> 👋</h1>
-    <p style="color:var(--muted2); margin-bottom:32px">Bereit für eine neue Lerneinheit?</p>
-    <div class="grid-3" style="margin-bottom:40px">
+  const html = `
+    <h1>Hallo, <span class="gradient-text">${PROFILE.username}</span> 👋</h1>
+    <div class="grid-3" style="margin: 20px 0 30px">
       <div class="stat-card"><div class="stat-value gradient-text">${lfCount||0}</div><div class="stat-label">Lernfelder</div></div>
-      <div class="stat-card"><div class="stat-value gradient-text">${inhCount||0}</div><div class="stat-label">Inhalte</div></div>
       <div class="stat-card"><div class="stat-value gradient-text">${fpCount||0}</div><div class="stat-label">Erledigt</div></div>
     </div>
-    <h2 style="margin-bottom:16px">Deine Lernbereiche</h2>
-    <div class="grid-2">${recentLf.map(lf => lfCard(lf, ['admin','mod'].includes(PROFILE.role))).join('')}</div>
+    <h2>Schnellstart</h2>
+    <div class="grid-2">${(recent||[]).map(lf => lfCard(lf, isMod)).join('')}</div>
   `;
-  document.getElementById('main').innerHTML = htmlD;
-
-  const htmlM = `
+  document.getElementById('main').innerHTML = html;
+  document.getElementById('mob-main').innerHTML = `
     <div class="mob-greeting">Hallo, <span class="gradient-text">${PROFILE.username}</span></div>
-    <div class="mob-greeting-sub">Weiter geht's mit dem Lernen!</div>
     <div class="mob-stats">
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${lfCount||0}</div><div class="mob-stat-lbl">Bereiche</div></div>
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${fpCount||0}</div><div class="mob-stat-lbl">Erledigt</div></div>
     </div>
-    <div class="mob-section">Schnellstart</div>
-    ${recentLf.map(lf => mobLfCard(lf, ['admin','mod'].includes(PROFILE.role))).join('')}
+    <div class="mob-section">Lernfelder</div>
+    ${(recent||[]).map(lf => mobLfCard(lf, isMod)).join('')}
   `;
-  document.getElementById('mob-main').innerHTML = htmlM;
 }
 
-// ── LERNFELDER ÜBERSICHT ──────────────────────────
 async function showLernfelder() {
   setActive('lnk-lf', 'bn-lf');
-  const { data: bereiche } = await db.from('lernbereiche').select('*, lernfelder(*)').order('reihenfolge');
   const isMod = ['admin','mod'].includes(PROFILE.role);
+  const { data: bereiche } = await db.from('lernbereiche').select('*, lernfelder(*)').order('reihenfolge');
 
-  const renderBereich = (b, mobile = false) => `
-    <div style="margin-bottom:32px">
-      <h2 style="margin-bottom:12px; display:flex; align-items:center; gap:10px">${b.icon} ${b.name}</h2>
-      <div class="${mobile ? '' : 'grid-3'}">
-        ${b.lernfelder.sort((a,z)=>a.nummer-z.nummer).map(lf => mobile ? mobLfCard(lf, isMod) : lfCard(lf, isMod)).join('')}
-      </div>
+  const html = `<h1>Lerninhalte</h1>${bereiche.map(b => `
+    <div style="margin-bottom:30px">
+      <h3>${b.icon} ${b.name}</h3>
+      <div class="grid-3">${b.lernfelder.sort((a,z)=>a.nummer-z.nummer).map(lf=>lfCard(lf,isMod)).join('')}</div>
     </div>
-  `;
-
-  document.getElementById('main').innerHTML = `<h1>📚 Lerninhalte</h1><p style="margin-bottom:32px; color:var(--muted2)">Alle Lernfelder im Überblick</p>${bereiche.map(b => renderBereich(b)).join('')}`;
-  document.getElementById('mob-main').innerHTML = `<div class="mob-section">Bibliothek</div>${bereiche.map(b => renderBereich(b, true)).join('')}`;
+  `).join('')}`;
+  document.getElementById('main').innerHTML = html;
+  document.getElementById('mob-main').innerHTML = `<div class="mob-greeting">Bibliothek</div>${bereiche.map(b => `
+    <div class="mob-section" style="margin-top:15px">${b.icon} ${b.name}</div>
+    ${b.lernfelder.sort((a,z)=>a.nummer-z.nummer).map(lf=>mobLfCard(lf,isMod)).join('')}
+  `).join('')}`;
 }
 
-// ── LERNFELD DETAIL (KATEGORISIERT) ───────────────
+// ── LERNFELD DETAIL (MIT GRUPPIERUNG & AKKORDEON) ──
 async function showLernfeldDetail(lfId) {
   const isMod = ['admin','mod'].includes(PROFILE.role);
   const [{ data: lf }, { data: inhalte }, { data: progress }] = await Promise.all([
     db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle(),
-    db.from('inhalte').select('*, kategorien(name, icon)').eq('lernfeld_id', lfId).order('reihenfolge'),
+    db.from('inhalte').select('*').eq('lernfeld_id', lfId).order('reihenfolge'),
     db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
   ]);
 
   if (!lf) return;
-  const doneIds = progress.map(p => p.inhalt_id);
+  const doneIds = (progress || []).map(p => p.inhalt_id);
+  const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', html:'🌐' };
 
   // Gruppierung nach Kategorie
   const groups = {};
-  inhalte.forEach(i => {
-    const katName = i.kategorien?.name || 'Allgemein';
-    if (!groups[katName]) groups[katName] = { icon: i.kategorien?.icon || '📁', items: [] };
-    groups[katName].items.push(i);
+  (inhalte || []).forEach(i => {
+    const kat = i.kategorie || 'Allgemein';
+    if (!groups[kat]) groups[kat] = [];
+    groups[kat].push(i);
   });
 
-  const renderList = (mobile = false) => {
-    let html = '';
-    for (const [name, data] of Object.entries(groups)) {
-      const doneInGroup = data.items.filter(item => doneIds.includes(item.id)).length;
-      html += `
-        <div class="category-section">
-          <div class="category-header">
-            <span style="font-size:1.2rem">${data.icon}</span>
-            <div class="category-title">${name}</div>
-            <div class="category-badge">${doneInGroup} / ${data.items.length}</div>
-          </div>
-          ${data.items.map((i, idx) => `
-            <div class="step-card ${doneIds.includes(i.id) ? 'done' : ''}" onclick="showInhalt(${i.id}, ${lfId})">
-              <div class="step-number">${doneIds.includes(i.id) ? '✓' : idx + 1}</div>
-              <div style="flex:1">
-                <div style="font-weight:600; font-size:${mobile ? '0.9rem' : '1rem'}">${i.titel}</div>
-                <div style="font-size:0.75rem; color:var(--muted2); margin-top:2px; text-transform:uppercase">${i.typ}</div>
-              </div>
-              <div style="color:var(--accent)">→</div>
+  const renderGroups = () => {
+    return Object.entries(groups).map(([katName, items], gIdx) => {
+      const doneCount = items.filter(i => doneIds.includes(i.id)).length;
+      const isExercises = katName.toLowerCase().includes('übung') || katName.toLowerCase().includes('aufgabe');
+      const startOpen = !isExercises; // Übungen standardmäßig einklappen
+
+      return `
+        <div class="cat-group ${startOpen ? 'open' : 'closed'}" id="cat-${gIdx}">
+          <div class="cat-header" onclick="toggleCat(${gIdx})">
+            <div class="cat-title-wrap">
+              <span class="cat-icon">${isExercises ? '✏️' : '📚'}</span>
+              <span class="cat-name">${katName}</span>
+              <span class="cat-count">${doneCount} / ${items.length} erledigt</span>
             </div>
-          `).join('')}
+            <div class="cat-chevron">▼</div>
+          </div>
+          <div class="cat-body">
+            ${items.map((i, idx) => `
+              <div class="step-card ${doneIds.includes(i.id) ? 'done' : ''}" onclick="showInhalt(${i.id}, ${lfId})">
+                <div class="step-number">${doneIds.includes(i.id) ? '✓' : idx + 1}</div>
+                <div class="step-info">
+                  <div class="step-title">${i.titel}</div>
+                  <div class="step-meta">${typeIcon[i.typ] || '📄'} ${i.typ}</div>
+                </div>
+                <div style="color:var(--accent)">→</div>
+              </div>
+            `).join('')}
+          </div>
         </div>
       `;
-    }
-    return html || '<p>Noch keine Inhalte vorhanden.</p>';
+    }).join('');
   };
 
   const header = `
-    <button class="btn btn-secondary btn-sm" onclick="showLernfelder()" style="margin-bottom:20px">← Übersicht</button>
-    <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px">
-      <div style="font-size:2.5rem">${lf.icon}</div>
-      <div>
-        <div style="color:var(--accent); font-weight:700; font-size:0.75rem; text-transform:uppercase">LF ${lf.nummer}</div>
-        <h1 style="margin:0">${lf.name}</h1>
-      </div>
+    <button class="btn btn-secondary btn-sm" onclick="showLernfelder()" style="margin-bottom:20px">← Zurück</button>
+    <div style="margin-bottom:24px">
+      <div style="color:var(--accent); font-weight:700; font-size:0.7rem; text-transform:uppercase">LF ${lf.nummer}</div>
+      <h1 style="margin:0">${lf.icon} ${lf.name}</h1>
     </div>
   `;
 
-  document.getElementById('main').innerHTML = header + renderList();
-  document.getElementById('mob-main').innerHTML = `<button class="mob-back" onclick="showLernfelder()">← Zurück</button>` + renderList(true);
+  document.getElementById('main').innerHTML = header + renderGroups();
+  document.getElementById('mob-main').innerHTML = `<button class="mob-back" onclick="showLernfelder()">← Zurück</button><h3>${lf.name}</h3>` + renderGroups();
 }
 
-// ── INHALT ANZEIGEN ───────────────────────────────
-async function showInhalt(inhaltId, lfId) {
-  const { data: i } = await db.from('inhalte').select('*, lernfelder(id,nummer,name)').eq('id', inhaltId).single();
-  
-  let viewer = '';
-  if (i.typ === 'html') {
-    viewer = `
-      <div class="iframe-container" id="fs-wrapper">
-        <button class="btn btn-danger exit-fs-btn" onclick="document.exitFullscreen()">✖ Beenden</button>
-        <iframe src="${i.inhalt.text}"></iframe>
+function toggleCat(idx) {
+  const el = document.getElementById('cat-' + idx);
+  el.classList.toggle('open');
+  el.classList.toggle('closed');
+}
+
+// ── INHALTE PFLEGEN ──────────────────────────────
+async function showInhalte() {
+  setActive('lnk-inhalte', 'bn-inhalte');
+  const { data: lf } = await db.from('lernfelder').select('id, nummer, name').order('nummer');
+  const { data: inh } = await db.from('inhalte').select('*, lernfelder(nummer)').order('lernfeld_id');
+  window._lf = lf;
+
+  const renderForm = (existing = null) => {
+    const isEdit = !!existing;
+    document.getElementById('form-wrap').innerHTML = `
+      <div class="card" style="margin-bottom:24px; border-left:4px solid var(--accent)">
+        <h3>${isEdit ? 'Inhalt bearbeiten' : 'Neuer Inhalt'}</h3>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Lernfeld</label>
+            <select class="form-input" id="f-lf">${lf.map(l=>`<option value="${l.id}" ${l.id==existing?.lernfeld_id?'selected':''}>LF ${l.nummer}: ${l.name}</option>`).join('')}</select>
+          </div>
+          <div class="form-group"><label class="form-label">Kategorie (z.B. Theorie, Übungen)</label>
+            <input type="text" class="form-input" id="f-kat" placeholder="Optional" value="${existing?.kategorie||''}">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Titel</label><input type="text" class="form-input" id="f-titel" value="${existing?.titel||''}"></div>
+          <div class="form-group"><label class="form-label">Typ</label>
+            <select class="form-input" id="f-typ">
+              <option value="html" ${existing?.typ=='html'?'selected':''}>🌐 HTML Datei</option>
+              <option value="text" ${existing?.typ=='text'?'selected':''}>📄 Text</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Inhalt (Text oder Dateipfad)</label><textarea class="form-input" id="f-text" rows="3">${existing?.inhalt?.text||''}</textarea></div>
+        <button class="btn btn-primary" onclick="saveInhalt(${isEdit}, ${existing?.id})">💾 Speichern</button>
+        <button class="btn btn-secondary" onclick="showInhalte()">Abbrechen</button>
       </div>
-      <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="document.getElementById('fs-wrapper').requestFullscreen()">🔲 Vollbild</button>
     `;
-  } else {
-    viewer = `<div class="card" style="line-height:1.6; font-size:1rem">${(i.inhalt.text||'').replace(/\n/g,'<br>')}</div>`;
-  }
+  };
 
-  const actions = `<div style="margin-top:24px"><button class="btn btn-success" onclick="markDone(${i.id}, ${lfId})">✅ Als erledigt markieren</button></div>`;
+  document.getElementById('main').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+      <h1>Inhalte bearbeiten</h1>
+      <button class="btn btn-primary" onclick="renderF()">+ Neu</button>
+    </div>
+    <div id="form-wrap"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>LF</th><th>Kategorie</th><th>Titel</th><th>Aktion</th></tr></thead>
+      <tbody>${inh.map(i=>`<tr><td>LF ${i.lernfelder?.nummer}</td><td>${i.kategorie||'-'}</td><td>${i.titel}</td><td><button class="btn btn-secondary btn-sm" onclick="editInh(${i.id})">✏️</button></td></tr>`).join('')}</tbody>
+    </table></div>
+  `;
+  window.renderF = () => renderForm();
+  window.editInh = (id) => renderForm(inh.find(x=>x.id==id));
+}
 
-  document.getElementById('main').innerHTML = `<button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${lfId})" style="margin-bottom:20px">← Zurück</button><h1>${i.titel}</h1>${viewer}${actions}`;
-  document.getElementById('mob-main').innerHTML = `<button class="mob-back" onclick="showLernfeldDetail(${lfId})">← Zurück</button><h3>${i.titel}</h3>${viewer}${actions}`;
+async function saveInhalt(isEdit, id) {
+  const payload = {
+    lernfeld_id: document.getElementById('f-lf').value,
+    kategorie: document.getElementById('f-kat').value.trim() || null,
+    titel: document.getElementById('f-titel').value.trim(),
+    typ: document.getElementById('f-typ').value,
+    inhalt: { text: document.getElementById('f-text').value.trim() }
+  };
+  if (isEdit) await db.from('inhalte').update(payload).eq('id', id);
+  else await db.from('inhalte').insert({ ...payload, erstellt_von: USER.id });
+  showInhalte();
+}
+
+// ── WEITERE FUNKTIONEN ───────────────────────────
+async function showInhalt(inhaltId, lfId) {
+  const { data: i } = await db.from('inhalte').select('*').eq('id', inhaltId).single();
+  let viewer = i.typ === 'html' ? `<div class="iframe-container"><iframe src="${i.inhalt.text}"></iframe></div>` : `<div class="card">${i.inhalt.text.replace(/\n/g,'<br>')}</div>`;
+  
+  const content = `<button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${lfId})" style="margin-bottom:20px">← Zurück</button><h2>${i.titel}</h2>${viewer}
+    <div style="margin-top:20px"><button class="btn btn-success" onclick="markDone(${i.id}, ${lfId})">✅ Erledigt</button></div>`;
+  
+  document.getElementById('main').innerHTML = content;
+  document.getElementById('mob-main').innerHTML = content;
 }
 
 async function markDone(id, lfId) {
@@ -371,137 +430,14 @@ async function markDone(id, lfId) {
   showLernfeldDetail(lfId);
 }
 
-// ── INHALTE VERWALTEN (MOD+) ──────────────────────
-async function showInhalte() {
-  setActive('lnk-inhalte', 'bn-inhalte');
-  const [{ data: lf }, { data: inh }] = await Promise.all([
-    db.from('lernfelder').select('*').order('nummer'),
-    db.from('inhalte').select('*, kategorien(name)').order('reihenfolge')
-  ]);
+function lfCard(lf, isMod) { return `<div class="lf-card ${!lf.freigeschaltet && !isMod?'lf-locked':''}" onclick="showLernfeldDetail(${lf.id})"><div class="lf-card-icon">${lf.icon}</div><div class="lf-card-num">LF ${lf.nummer}</div><div class="lf-card-name">${lf.name}</div></div>`; }
+function mobLfCard(lf, isMod) { return `<div class="mob-lf-card" onclick="showLernfeldDetail(${lf.id})"><div class="mob-lf-icon-wrap">${lf.icon}</div><div class="mob-lf-info"><div class="mob-lf-num">LF ${lf.nummer}</div><div class="mob-lf-name">${lf.name}</div></div><div class="mob-lf-arrow">›</div></div>`; }
 
-  const renderForm = (target, existing = null) => {
-    const isEdit = !!existing;
-    const currentLf = existing ? existing.lernfeld_id : lf[0]?.id;
-    const currentKat = existing ? existing.kategorie_id : KATEGORIEN[0]?.id;
-
-    document.getElementById(target).innerHTML = `
-      <div class="card" style="margin-bottom:24px; border-left:4px solid var(--accent)">
-        <h3 style="margin-bottom:16px">${isEdit ? 'Inhalt bearbeiten' : 'Neuer Inhalt'}</h3>
-        <div class="grid-2">
-          <div class="form-group"><label class="form-label">Lernfeld</label>
-            <select class="form-input" id="f-lf">${lf.map(l=>`<option value="${l.id}" ${l.id==currentLf?'selected':''}>LF ${l.nummer}: ${l.name}</option>`).join('')}</select>
-          </div>
-          <div class="form-group"><label class="form-label">Kategorie</label>
-            <select class="form-input" id="f-kat">${KATEGORIEN.map(k=>`<option value="${k.id}" ${k.id==currentKat?'selected':''}>${k.icon} ${k.name}</option>`).join('')}</select>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="form-group"><label class="form-label">Titel</label><input type="text" class="form-input" id="f-titel" value="${existing?.titel||''}"></div>
-          <div class="form-group"><label class="form-label">Typ</label>
-            <select class="form-input" id="f-typ">
-              <option value="html" ${existing?.typ==='html'?'selected':''}>HTML Datei</option>
-              <option value="text" ${existing?.typ==='text'?'selected':''}>Text/Lektion</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group"><label class="form-label">Inhalt / Pfad</label><textarea class="form-input" id="f-text" rows="3">${existing?.inhalt?.text||''}</textarea></div>
-        <div style="display:flex; gap:10px">
-          <button class="btn btn-primary" onclick="saveInhalt(${isEdit}, ${existing?.id})">Speichern</button>
-          <button class="btn btn-secondary" onclick="showInhalte()">Abbrechen</button>
-        </div>
-      </div>
-    `;
-  };
-
-  const listHtml = lf.map(l => {
-    const lInh = inh.filter(i => i.lernfeld_id === l.id);
-    return `
-      <div class="accordion" id="acc-${l.id}">
-        <div class="accordion-header" onclick="toggleAcc(${l.id})">
-          <span>LF ${l.nummer}: ${l.name} (${lInh.length})</span>
-          <span>▼</span>
-        </div>
-        <div class="accordion-body">
-          ${lInh.map(i => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border)">
-              <div>
-                <div style="font-weight:600">${i.titel}</div>
-                <div style="font-size:0.7rem; color:var(--muted)">${i.kategorien?.name || 'Keine Kat.'} • ${i.typ}</div>
-              </div>
-              <div style="display:flex; gap:5px">
-                <button class="btn btn-secondary btn-sm" onclick="editInh(${i.id})">✏️</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteInh(${i.id})">🗑</button>
-              </div>
-            </div>
-          `).join('') || '<div style="padding:15px">Keine Inhalte</div>'}
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  document.getElementById('main').innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
-      <h1>Inhalte bearbeiten</h1>
-      <button class="btn btn-primary" onclick="window.scrollTo(0,0); document.getElementById('f-wrap').innerHTML=''; renderF()">+ Neu</button>
-    </div>
-    <div id="f-wrap"></div>${listHtml}
-  `;
-  window.renderF = () => renderForm('f-wrap');
-  window.editInh = async (id) => { const {data} = await db.from('inhalte').select('*').eq('id',id).single(); renderForm('f-wrap', data); window.scrollTo(0,0); };
-}
-
-async function saveInhalt(isEdit, id) {
-  const payload = {
-    lernfeld_id: document.getElementById('f-lf').value,
-    kategorie_id: document.getElementById('f-kat').value,
-    titel: document.getElementById('f-titel').value,
-    typ: document.getElementById('f-typ').value,
-    inhalt: { text: document.getElementById('f-text').value }
-  };
-  if (isEdit) await db.from('inhalte').update(payload).eq('id', id);
-  else await db.from('inhalte').insert({ ...payload, erstellt_von: USER.id });
-  showInhalte();
-}
-
-async function deleteInh(id) { if(confirm('Löschen?')) { await db.from('inhalte').delete().eq('id', id); showInhalte(); } }
-function toggleAcc(id) { document.getElementById('acc-'+id).classList.toggle('open'); }
-
-// ── HELPERS ──────────────────────────────────────
-function lfCard(lf, isMod) {
-  const locked = !lf.freigeschaltet && !isMod;
-  return `
-    <div class="lf-card ${locked?'lf-locked':''}" onclick="${!locked?`showLernfeldDetail(${lf.id})`:''}">
-      <div class="lf-card-icon">${lf.icon}</div>
-      <div class="lf-card-num">LF ${lf.nummer}</div>
-      <div class="lf-card-name">${lf.name}</div>
-    </div>
-  `;
-}
-function mobLfCard(lf, isMod) {
-  const locked = !lf.freigeschaltet && !isMod;
-  return `
-    <div class="mob-lf-card ${locked?'locked':''}" onclick="${!locked?`showLernfeldDetail(${lf.id})`:''}" style="margin-bottom:10px">
-      <div class="mob-lf-icon-wrap">${lf.icon}</div>
-      <div class="mob-lf-info">
-        <div class="mob-lf-num">LF ${lf.nummer}</div>
-        <div class="mob-lf-name">${lf.name}</div>
-      </div>
-      <div class="mob-lf-arrow">${locked?'🔒':'›'}</div>
-    </div>
-  `;
-}
-
-// ── ADMIN & FORTSCHRITT (Platzhalter aus Original) ──
 async function showFortschritt() {
   setActive('lnk-fp', 'bn-fp');
   const { data: fp } = await db.from('fortschritt').select('*, inhalte(titel, lernfelder(nummer))').eq('user_id', USER.id).eq('abgeschlossen', true);
   const rows = (fp||[]).map(f => `<tr><td>LF ${f.inhalte?.lernfelder?.nummer}</td><td>${f.inhalte?.titel}</td><td>${new Date(f.completed_at).toLocaleDateString()}</td></tr>`).join('');
-  document.getElementById('main').innerHTML = `<h1>📊 Mein Fortschritt</h1><div class="table-wrap"><table><thead><tr><th>LF</th><th>Inhalt</th><th>Datum</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-
-async function showAdmin() {
-  setActive('lnk-admin', null);
-  document.getElementById('main').innerHTML = `<h1>⚙️ Admin Panel</h1><p>Hier kannst du Benutzerrollen und Lernfelder verwalten.</p>`;
+  document.getElementById('main').innerHTML = `<h1>📊 Erfolg</h1><div class="table-wrap"><table><thead><tr><th>LF</th><th>Inhalt</th><th>Datum</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 </script>
 </body>
