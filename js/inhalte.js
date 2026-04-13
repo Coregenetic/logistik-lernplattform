@@ -26,6 +26,8 @@ async function showInhalte() {
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', grammatik:'📝' };
 
   // ── HTML GENERIERUNG (Desktop) ─────────────────────────────
+  
+  // 1. Lernfeld-Inhalte
   const lfGroupsHTML = (lernfelder||[]).map(lf => {
     const items = (inhalte||[]).filter(i => i.lernfeld_id === lf.id);
     if (!items.length) return '';
@@ -33,21 +35,30 @@ async function showInhalte() {
       <div class="card" style="margin-bottom:15px">
         <div style="font-weight:700; margin-bottom:10px; color:var(--accent)">LF ${lf.nummer}: ${lf.name}</div>
         <div class="table-wrap"><table>
-          <tbody>${items.map(i=>`<tr><td style="width:40px">${typeIcon[i.typ]}</td><td>${i.titel}</td><td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deleteInhalt(${i.id})">🗑</button></td></tr>`).join('')}</tbody>
+          <thead><tr><th>Typ</th><th>Titel</th><th style="text-align:right">Aktion</th></tr></thead>
+          <tbody>${items.map(i=>`<tr><td style="width:40px">${typeIcon[i.typ]}</td><td>${i.titel}</td><td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deleteInhalt(${i.id})">🗑 Löschen</button></td></tr>`).join('')}</tbody>
         </table></div>
       </div>`;
   }).join('') || '<div class="alert alert-info">Keine Lernfeld-Inhalte.</div>';
 
+  // 2. Fach-Inhalte (WIPO, Englisch etc.)
   const fachInhalteHTML = (faecher||[]).map(f => {
     const fKap = (kapitel||[]).filter(k => k.fach_id === f.id);
     const sections = fKap.map(k => {
       const items = (fachInhalte||[]).filter(fi => fi.kapitel_id === k.id);
       if (!items.length) return '';
-      return `<div style="margin-bottom:10px; padding-left:10px; border-left:2px solid var(--accent)"><b>${k.name}</b><br>${items.map(i=>`${typeIcon[i.typ]} ${i.titel}`).join(', ')}</div>`;
+      return `
+        <div style="margin-bottom:15px; padding-left:12px; border-left:2px solid var(--accent)">
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:8px">${k.name}</div>
+          <div class="table-wrap"><table>
+            <tbody>${items.map(i=>`<tr><td style="width:40px">${typeIcon[i.typ]}</td><td>${i.titel}</td><td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deleteFachInhalt(${i.id})">🗑 Löschen</button></td></tr>`).join('')}</tbody>
+          </table></div>
+        </div>`;
     }).join('');
     return sections ? `<div class="card" style="margin-bottom:15px"><h3>${f.icon} ${f.name}</h3>${sections}</div>` : '';
   }).join('') || '<div class="alert alert-info">Noch keine Fach-Inhalte.</div>';
 
+  // 3. Kapitel-Verwaltung
   const kapitelListeHTML = (faecher||[]).map(f => {
     const fKap = (kapitel||[]).filter(k => k.fach_id === f.id);
     return `
@@ -55,7 +66,7 @@ async function showInhalte() {
         <h3>${f.icon} ${f.name}</h3>
         <div class="table-wrap"><table>
           ${fKap.map(k=>`<tr><td>${k.name}</td><td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deleteKapitel(${k.id})">🗑</button></td></tr>`).join('')}
-          ${!fKap.length ? '<tr><td style="color:var(--muted2)">Keine Kapitel.</td></tr>' : ''}
+          ${!fKap.length ? '<tr><td style="color:var(--muted2)">Keine Kapitel angelegt.</td></tr>' : ''}
         </table></div>
       </div>`;
   }).join('');
@@ -88,9 +99,11 @@ async function showInhalte() {
     <div id="mob-admin-form"></div>
     <div class="mob-section">📚 Inhalte</div>
     ${(inhalte||[]).map(i=>`<div class="mob-inhalt-card"><div class="mob-inhalt-type">${typeIcon[i.typ]}</div><div style="flex:1">LF ${i.lernfelder?.nummer}: ${i.titel}</div><button class="btn btn-danger btn-sm" onclick="deleteInhalt(${i.id})">🗑</button></div>`).join('')}
+    <div class="mob-section" style="margin-top:20px">📘 Fächer</div>
+    ${(fachInhalte||[]).map(i=>`<div class="mob-inhalt-card"><div class="mob-inhalt-type">${typeIcon[i.typ]}</div><div style="flex:1"><b>${i.fach_kapitel?.faecher?.name}</b><br>${i.titel}</div><button class="btn btn-danger btn-sm" onclick="deleteFachInhalt(${i.id})">🗑</button></div>`).join('')}
   `);
   
-  switchInhalteTab('lf'); // Initialer Tab
+  switchInhalteTab('lf');
 }
 
 function switchInhalteTab(tab) {
@@ -103,6 +116,37 @@ function switchInhalteTab(tab) {
   });
 }
 
+// ── LÖSCH-LOGIK (VERBESSERT) ──────────────────────────────────
+
+async function deleteInhalt(id) {
+  if (!confirm('Diesen Inhalt und den dazugehörigen Fortschritt aller Nutzer wirklich löschen?')) return;
+  // 1. Fortschritt löschen (wegen Foreign Key Constraint)
+  await db.from('fortschritt').delete().eq('inhalt_id', id);
+  // 2. Inhalt löschen
+  const { error } = await db.from('inhalte').delete().eq('id', id);
+  if (error) alert("Fehler: " + error.message);
+  showInhalte();
+}
+
+async function deleteFachInhalt(id) {
+  if (!confirm('Diesen Fach-Inhalt und den dazugehörigen Fortschritt wirklich löschen?')) return;
+  // 1. Fortschritt löschen
+  await db.from('fach_fortschritt').delete().eq('inhalt_id', id);
+  // 2. Inhalt löschen
+  const { error } = await db.from('fach_inhalte').delete().eq('id', id);
+  if (error) alert("Fehler: " + error.message);
+  showInhalte();
+}
+
+async function deleteKapitel(id) {
+  if (!confirm('Kapitel löschen? Alle Inhalte darin müssen vorher gelöscht werden!')) return;
+  const { error } = await db.from('fach_kapitel').delete().eq('id', id);
+  if (error) alert("Löschen fehlgeschlagen. Sind noch Inhalte im Kapitel? " + error.message);
+  showInhalte();
+}
+
+// ── FORMULAR-LOGIK ───────────────────────────────────────────
+
 function showAddKapitelForm() {
   const f = window._faecher || [];
   const html = `
@@ -114,13 +158,12 @@ function showAddKapitelForm() {
       </div>
       <div class="form-group">
         <label class="form-label">Name</label>
-        <input class="form-input" type="text" id="kap-name" placeholder="z.B. Grammatik: Zeitformen">
+        <input class="form-input" type="text" id="kap-name" placeholder="z.B. WiPo: Kaufvertragsstörungen">
       </div>
       <div style="display:flex; gap:10px">
         <button class="btn btn-primary" onclick="saveKapitel()">💾 Erstellen</button>
         <button class="btn btn-secondary" onclick="closeAdminForm()">Abbrechen</button>
       </div>
-      <div id="kap-msg"></div>
     </div>`;
   const target = window.innerWidth <= 700 ? 'mob-admin-form' : 'admin-form-area';
   document.getElementById(target).innerHTML = html;
@@ -129,9 +172,9 @@ function showAddKapitelForm() {
 async function saveKapitel() {
   const fach_id = document.getElementById('kap-fach').value;
   const name = document.getElementById('kap-name').value.trim();
-  if (!name) return alert('Name fehlt');
-  const { error } = await db.from('fach_kapitel').insert({ fach_id, name, reihenfolge: 99 });
-  if (error) alert(error.message); else showInhalte();
+  if (!name) return;
+  await db.from('fach_kapitel').insert({ fach_id, name, reihenfolge: 99 });
+  showInhalte();
 }
 
 function showAddForm() {
@@ -153,7 +196,6 @@ function showAddForm() {
           <option value="text">📄 Text</option>
           <option value="quiz">❓ Quiz</option>
           <option value="lernkarten">🃏 Lernkarten</option>
-          <option value="grammatik">📝 Grammatik</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Titel</label><input class="form-input" type="text" id="new-titel"></div>
@@ -162,7 +204,6 @@ function showAddForm() {
         <button class="btn btn-primary" onclick="saveInhalt()">💾 Speichern</button>
         <button class="btn btn-secondary" onclick="closeAdminForm()">Abbrechen</button>
       </div>
-      <div id="save-msg"></div>
     </div>`;
   const target = window.innerWidth <= 700 ? 'mob-admin-form' : 'admin-form-area';
   document.getElementById(target).innerHTML = html;
@@ -173,22 +214,17 @@ async function saveInhalt() {
   const typ = document.getElementById('new-typ').value;
   const titel = document.getElementById('new-titel').value.trim();
   const text = document.getElementById('new-text').value.trim();
-  if (!titel || !text) return alert('Titel/Inhalt fehlt');
+  if (!titel || !text) return;
   
-  let error;
   if (ziel.startsWith('lf-')) {
-    ({ error } = await db.from('inhalte').insert({ lernfeld_id: ziel.replace('lf-',''), typ, titel, inhalt:{text}, erstellt_von:USER.id }));
+    await db.from('inhalte').insert({ lernfeld_id: ziel.replace('lf-',''), typ, titel, inhalt:{text}, erstellt_von:USER.id });
   } else {
-    ({ error } = await db.from('fach_inhalte').insert({ kapitel_id: ziel.replace('fach-',''), typ, titel, inhalt:{text}, erstellt_von:USER.id }));
+    await db.from('fach_inhalte').insert({ kapitel_id: ziel.replace('fach-',''), typ, titel, inhalt:{text}, erstellt_von:USER.id });
   }
-  if (error) alert(error.message); else showInhalte();
+  showInhalte();
 }
 
 function closeAdminForm() {
   if(document.getElementById('admin-form-area')) document.getElementById('admin-form-area').innerHTML = '';
   if(document.getElementById('mob-admin-form')) document.getElementById('mob-admin-form').innerHTML = '';
 }
-
-async function deleteInhalt(id) { if(confirm('Löschen?')) { await db.from('inhalte').delete().eq('id', id); showInhalte(); } }
-async function deleteFachInhalt(id) { if(confirm('Löschen?')) { await db.from('fach_inhalte').delete().eq('id', id); showInhalte(); } }
-async function deleteKapitel(id) { if(confirm('Kapitel löschen?')) { await db.from('fach_kapitel').delete().eq('id', id); showInhalte(); } }
