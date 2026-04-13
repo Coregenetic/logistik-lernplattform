@@ -164,23 +164,39 @@ async function markDone(inhaltId, lfId) {
 // ── QUIZ ENGINE ───────────────────────────────────────────────
 function normalize(t) {
   if (!t) return "";
-  return t.toLowerCase()
+  return String(t).toLowerCase()
     .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
-    .replace(/[^a-z0-9\s]/g,' ');
+    .replace(/[^a-z0-9\s]/g,' ')
+    .trim();
 }
 
-// FIX: Sicherheitsprüfung für Keywords eingebaut
+// FIX: Bulletproof-Keyword-Check für alle Datenformate
 function bewerte(antwort, frage) {
   const n = normalize(antwort);
   const matched = [], missing = [];
   
-  if (frage.keywords && Array.isArray(frage.keywords)) {
+  if (frage && frage.keywords && Array.isArray(frage.keywords)) {
     frage.keywords.forEach(g => {
-      // Prüfen, ob words existiert und ein Array ist
-      const words = Array.isArray(g) ? g : g.words;
-      const label = g.label || (Array.isArray(g) ? g[0] : "Keyword");
+      let words = [];
+      let label = "Keyword";
 
-      if (words && Array.isArray(words)) {
+      // 1. Format: g ist ein Objekt {label: "...", words: [...]}
+      if (typeof g === 'object' && g !== null && g.words && Array.isArray(g.words)) {
+        words = g.words;
+        label = g.label || words[0] || "Keyword";
+      } 
+      // 2. Format: g ist ein Array von Synonymen ["Wort1", "Wort2"]
+      else if (Array.isArray(g)) {
+        words = g;
+        label = g[0] || "Keyword";
+      }
+      // 3. Format: g ist ein einfacher String "Wort"
+      else if (typeof g === 'string') {
+        words = [g];
+        label = g;
+      }
+
+      if (words.length > 0) {
         const hit = words.some(w => n.includes(normalize(w)));
         (hit ? matched : missing).push(label);
       }
@@ -194,14 +210,14 @@ function bewerte(antwort, frage) {
 }
 
 const quizStyles = `<style>
-  .quiz-wrap{max-width:620px}
+  .quiz-wrap{max-width:620px; width: 100%; box-sizing: border-box;}
   .quiz-progress{height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:20px}
   .quiz-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width 0.4s}
   .quiz-counter{font-size:0.78rem;color:var(--muted2);margin-bottom:16px}
   .quiz-scores{display:flex;gap:14px;margin-bottom:20px;font-size:0.82rem}
   .qs-r{color:var(--correct);font-weight:600}.qs-t{color:var(--warning);font-weight:600}.qs-f{color:var(--danger);font-weight:600}
   .quiz-frage{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px;font-size:1rem;font-weight:600;line-height:1.5}
-  .quiz-textarea{width:100%;min-height:100px;background:var(--surface);border:2px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:0.95rem;padding:14px;resize:none;outline:none;transition:border-color 0.2s;margin-bottom:12px;line-height:1.5}
+  .quiz-textarea{width:100%;min-height:120px;background:var(--surface);border:2px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:1rem;padding:14px;resize:none;outline:none;transition:border-color 0.2s;margin-bottom:12px;line-height:1.5;box-sizing:border-box;}
   .quiz-textarea:focus{border-color:var(--accent)}
   .quiz-submit{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:12px}
   .quiz-submit:disabled{opacity:0.4;cursor:default}
@@ -223,6 +239,8 @@ const quizStyles = `<style>
 
 function renderQuiz(inhalt, backLabel, backFn) {
   const fragen   = inhalt.inhalt?.fragen || [];
+  if (!fragen.length) return alert("Keine Fragen in diesem Quiz gefunden.");
+  
   const shuffled = [...fragen].sort(() => Math.random() - 0.5);
   let current = 0, richtig = 0, teilweise = 0, falsch = 0;
 
@@ -266,24 +284,32 @@ function renderQuiz(inhalt, backLabel, backFn) {
     </div></div>`;
   }
 
-  function backBtn(desktop) {
-    return desktop
+  function getBackBtnHTML(isDesktop) {
+    return isDesktop
       ? `<button class="btn btn-secondary btn-sm" onclick="window._quizState.backFn()" style="margin-bottom:20px">${backLabel}</button>`
       : `<button class="mob-back" onclick="window._quizState.backFn()">${backLabel}</button>`;
   }
 
-  function attachEnter() {
-    document.querySelectorAll('.quiz-textarea').forEach(ta =>
-      ta.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') quizAbgeben(); }));
+  function attachEvents() {
+    const ta = document.getElementById('quiz-answer');
+    if (ta) {
+      ta.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') quizAbgeben(); });
+    }
   }
 
   window.quizAbgeben = function() {
     const answer = document.getElementById('quiz-answer')?.value.trim();
-    if (!answer || answer.length < 3) return;
+    if (!answer || answer.length < 2) return;
+    
     document.getElementById('quiz-submit').disabled = true;
     document.getElementById('quiz-answer').disabled = true;
+    
     const { verdict, matched, missing } = bewerte(answer, shuffled[current]);
-    if (verdict==='richtig') richtig++; else if (verdict==='teilweise') teilweise++; else falsch++;
+    
+    if (verdict==='richtig') richtig++; 
+    else if (verdict==='teilweise') teilweise++; 
+    else falsch++;
+    
     const icons = { richtig:'✅ Richtig!', teilweise:'⚡ Teilweise richtig', falsch:'❌ Falsch' };
     const fb = document.getElementById('quiz-feedback');
     fb.className = `quiz-feedback ${verdict}`;
@@ -291,6 +317,7 @@ function renderQuiz(inhalt, backLabel, backFn) {
     document.getElementById('quiz-kw-found').textContent = matched.length ? '✓ Erkannt: '+matched.join(', ') : '';
     document.getElementById('quiz-kw-miss').textContent  = missing.length ? '✗ Fehlend: '+missing.join(', ')  : '';
     document.getElementById('quiz-muster').innerHTML = `<strong>Musterantwort:</strong> ${shuffled[current].muster}`;
+    
     fb.style.display='block';
     document.getElementById('quiz-next').style.display='block';
     document.getElementById('quiz-submit').style.display='none';
@@ -299,16 +326,16 @@ function renderQuiz(inhalt, backLabel, backFn) {
   window.quizWeiter = function() {
     current++;
     if (current >= shuffled.length) {
-      setDesktop(backBtn(true) + resultHTML());
-      setMobile(backBtn(false) + resultHTML());
+      setDesktop(getBackBtnHTML(true) + resultHTML());
+      setMobile(getBackBtnHTML(false) + resultHTML());
       return;
     }
-    setDesktop(backBtn(true) + `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML());
-    setMobile(backBtn(false) + `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML());
-    attachEnter();
+    setDesktop(getBackBtnHTML(true) + `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML());
+    setMobile(getBackBtnHTML(false) + `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML());
+    attachEvents();
   };
 
-  setDesktop(backBtn(true) + `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML());
-  setMobile(backBtn(false) + `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML());
-  attachEnter();
+  setDesktop(getBackBtnHTML(true) + `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML());
+  setMobile(getBackBtnHTML(false) + `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML());
+  attachEvents();
 }
