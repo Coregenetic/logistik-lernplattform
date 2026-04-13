@@ -170,7 +170,6 @@ function normalize(t) {
     .trim();
 }
 
-// FIX: Bulletproof-Keyword-Check für alle Datenformate
 function bewerte(antwort, frage) {
   const n = normalize(antwort);
   const matched = [], missing = [];
@@ -180,18 +179,13 @@ function bewerte(antwort, frage) {
       let words = [];
       let label = "Keyword";
 
-      // 1. Format: g ist ein Objekt {label: "...", words: [...]}
       if (typeof g === 'object' && g !== null && g.words && Array.isArray(g.words)) {
         words = g.words;
         label = g.label || words[0] || "Keyword";
-      } 
-      // 2. Format: g ist ein Array von Synonymen ["Wort1", "Wort2"]
-      else if (Array.isArray(g)) {
+      } else if (Array.isArray(g)) {
         words = g;
         label = g[0] || "Keyword";
-      }
-      // 3. Format: g ist ein einfacher String "Wort"
-      else if (typeof g === 'string') {
+      } else if (typeof g === 'string') {
         words = [g];
         label = g;
       }
@@ -238,21 +232,29 @@ const quizStyles = `<style>
 </style>`;
 
 function renderQuiz(inhalt, backLabel, backFn) {
-  const fragen   = inhalt.inhalt?.fragen || [];
-  if (!fragen.length) return alert("Keine Fragen in diesem Quiz gefunden.");
+  const fragen = inhalt.inhalt?.fragen || [];
+  if (!fragen.length) return alert("Keine Fragen gefunden.");
   
   const shuffled = [...fragen].sort(() => Math.random() - 0.5);
   let current = 0, richtig = 0, teilweise = 0, falsch = 0;
-
   window._quizState = { inhalt, backLabel, backFn };
 
-  function quizHTML() {
-    return quizStyles + `<div class="quiz-wrap">
+  function renderView() {
+    const isMob = window.innerWidth <= 700;
+    const backBtnHTML = isMob 
+      ? `<button class="mob-back" onclick="window._quizState.backFn()">${backLabel}</button>`
+      : `<button class="btn btn-secondary btn-sm" onclick="window._quizState.backFn()" style="margin-bottom:20px">${backLabel}</button>`;
+    
+    const titleHTML = isMob 
+      ? `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>`
+      : `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>`;
+
+    const html = quizStyles + `<div class="quiz-wrap">
       <div class="quiz-progress"><div class="quiz-progress-fill" style="width:${(current/shuffled.length)*100}%"></div></div>
       <div class="quiz-counter">Frage ${current+1} von ${shuffled.length}</div>
       <div class="quiz-scores"><span class="qs-r">✅ ${richtig}</span><span class="qs-t">⚡ ${teilweise}</span><span class="qs-f">❌ ${falsch}</span></div>
       <div class="quiz-frage">${shuffled[current].frage}</div>
-      <textarea class="quiz-textarea" id="quiz-answer" placeholder="Schreibe hier deine Antwort..."></textarea>
+      <textarea class="quiz-textarea" id="quiz-answer" placeholder="Antwort hier schreiben..."></textarea>
       <button class="quiz-submit" id="quiz-submit" onclick="quizAbgeben()">✓ Antwort abgeben</button>
       <div class="quiz-feedback" id="quiz-feedback">
         <div class="quiz-verdict" id="quiz-verdict"></div>
@@ -262,54 +264,28 @@ function renderQuiz(inhalt, backLabel, backFn) {
       </div>
       <button class="quiz-next" id="quiz-next" onclick="quizWeiter()">Weiter →</button>
     </div>`;
-  }
 
-  function resultHTML() {
-    const pts = richtig + teilweise * 0.5;
-    const pct = Math.round((pts / shuffled.length) * 100);
-    const emoji = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📚';
-    const msg   = pct >= 80 ? 'Sehr gut! Du kennst den Stoff!' : pct >= 50 ? 'Gut! Noch etwas üben.' : 'Weitermachen – du schaffst das!';
-    return quizStyles + `<div class="quiz-wrap"><div class="quiz-result">
-      <div style="font-size:3rem">${emoji}</div>
-      <h2 style="margin:12px 0 4px">Quiz abgeschlossen!</h2>
-      <div class="quiz-result-score gradient-text">${pct}%</div>
-      <p style="color:var(--muted2);margin-bottom:20px">${msg}</p>
-      <div class="quiz-scores" style="justify-content:center">
-        <span class="qs-r">✅ ${richtig}</span><span class="qs-t">⚡ ${teilweise}</span><span class="qs-f">❌ ${falsch}</span>
-      </div>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
-        <button class="quiz-restart" onclick="renderQuiz(window._quizState.inhalt,window._quizState.backLabel,window._quizState.backFn)">🔄 Nochmal</button>
-        <button class="btn btn-secondary" onclick="window._quizState.backFn()">← Zurück</button>
-      </div>
-    </div></div>`;
-  }
-
-  function getBackBtnHTML(isDesktop) {
-    return isDesktop
-      ? `<button class="btn btn-secondary btn-sm" onclick="window._quizState.backFn()" style="margin-bottom:20px">${backLabel}</button>`
-      : `<button class="mob-back" onclick="window._quizState.backFn()">${backLabel}</button>`;
-  }
-
-  function attachEvents() {
-    const ta = document.getElementById('quiz-answer');
-    if (ta) {
-      ta.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') quizAbgeben(); });
+    if (isMob) {
+      setMobile(backBtnHTML + titleHTML + html);
+      setDesktop(""); // Verhindert ID-Kollisionen
+    } else {
+      setDesktop(backBtnHTML + titleHTML + html);
+      setMobile("");
     }
+    
+    setTimeout(() => {
+      const ta = document.getElementById('quiz-answer');
+      if (ta) ta.addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') quizAbgeben(); });
+    }, 50);
   }
 
   window.quizAbgeben = function() {
     const answer = document.getElementById('quiz-answer')?.value.trim();
     if (!answer || answer.length < 2) return;
-    
     document.getElementById('quiz-submit').disabled = true;
     document.getElementById('quiz-answer').disabled = true;
-    
     const { verdict, matched, missing } = bewerte(answer, shuffled[current]);
-    
-    if (verdict==='richtig') richtig++; 
-    else if (verdict==='teilweise') teilweise++; 
-    else falsch++;
-    
+    if (verdict==='richtig') richtig++; else if (verdict==='teilweise') teilweise++; else falsch++;
     const icons = { richtig:'✅ Richtig!', teilweise:'⚡ Teilweise richtig', falsch:'❌ Falsch' };
     const fb = document.getElementById('quiz-feedback');
     fb.className = `quiz-feedback ${verdict}`;
@@ -317,7 +293,6 @@ function renderQuiz(inhalt, backLabel, backFn) {
     document.getElementById('quiz-kw-found').textContent = matched.length ? '✓ Erkannt: '+matched.join(', ') : '';
     document.getElementById('quiz-kw-miss').textContent  = missing.length ? '✗ Fehlend: '+missing.join(', ')  : '';
     document.getElementById('quiz-muster').innerHTML = `<strong>Musterantwort:</strong> ${shuffled[current].muster}`;
-    
     fb.style.display='block';
     document.getElementById('quiz-next').style.display='block';
     document.getElementById('quiz-submit').style.display='none';
@@ -326,16 +301,26 @@ function renderQuiz(inhalt, backLabel, backFn) {
   window.quizWeiter = function() {
     current++;
     if (current >= shuffled.length) {
-      setDesktop(getBackBtnHTML(true) + resultHTML());
-      setMobile(getBackBtnHTML(false) + resultHTML());
+      const isMob = window.innerWidth <= 700;
+      const pts = richtig + teilweise * 0.5;
+      const pct = Math.round((pts / shuffled.length) * 100);
+      const resHTML = quizStyles + `<div class="quiz-wrap"><div class="quiz-result">
+        <div style="font-size:3rem">🎉</div>
+        <h2 style="margin:12px 0 4px">Abgeschlossen!</h2>
+        <div class="quiz-result-score gradient-text">${pct}%</div>
+        <div class="quiz-scores" style="justify-content:center">
+          <span class="qs-r">✅ ${richtig}</span><span class="qs-t">⚡ ${teilweise}</span><span class="qs-f">❌ ${falsch}</span>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button class="quiz-restart" onclick="renderQuiz(window._quizState.inhalt,window._quizState.backLabel,window._quizState.backFn)">🔄 Nochmal</button>
+          <button class="btn btn-secondary" onclick="window._quizState.backFn()">← Zurück</button>
+        </div>
+      </div></div>`;
+      if (isMob) setMobile(resHTML); else setDesktop(resHTML);
       return;
     }
-    setDesktop(getBackBtnHTML(true) + `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML());
-    setMobile(getBackBtnHTML(false) + `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML());
-    attachEvents();
+    renderView();
   };
 
-  setDesktop(getBackBtnHTML(true) + `<h1 style="margin-bottom:20px">${inhalt.titel}</h1>` + quizHTML());
-  setMobile(getBackBtnHTML(false) + `<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">${inhalt.titel}</div>` + quizHTML());
-  attachEvents();
+  renderView();
 }
