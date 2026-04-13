@@ -37,7 +37,7 @@ async function showHome() {
   // Mobile
   setMobile(`
     <div class="mob-greeting">Moin, <span class="gradient-text">${PROFILE.username}</span> 👋</div>
-    <div class="mob-greeting-sub">Was lernst du heute?</div>
+    <div class="mob-greeting-sub">Krieg dein Arsch hoch und lerne!</div>
     <div class="mob-stats">
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${lfCount||0}</div><div class="mob-stat-lbl">📚 Lernfelder</div></div>
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${erledigtGesamt}</div><div class="mob-stat-lbl">✅ Erledigt</div></div>
