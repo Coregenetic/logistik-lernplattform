@@ -116,22 +116,38 @@ function switchInhalteTab(tab) {
   });
 }
 
-// ── LÖSCH-LOGIK (Nuklear-Option für Kapitel) ──────────────────
+// ── LÖSCH-LOGIK ───────────────────────────────────────────────
 
 async function deleteInhalt(id) {
   if (!confirm('Diesen Inhalt wirklich löschen?')) return;
   showSpinner();
-  await db.from('fortschritt').delete().eq('inhalt_id', id);
-  await db.from('inhalte').delete().eq('id', id);
-  showInhalte();
+  try {
+    const { error: e1 } = await db.from('fortschritt').delete().eq('inhalt_id', id);
+    if (e1) throw e1;
+    const { error: e2 } = await db.from('inhalte').delete().eq('id', id);
+    if (e2) throw e2;
+    showInhalte();
+  } catch (err) {
+    alert('Fehler beim Löschen: ' + err.message);
+    console.error(err);
+    showInhalte();
+  }
 }
 
 async function deleteFachInhalt(id) {
   if (!confirm('Diesen Fach-Inhalt wirklich löschen?')) return;
   showSpinner();
-  await db.from('fach_fortschritt').delete().eq('inhalt_id', id);
-  await db.from('fach_inhalte').delete().eq('id', id);
-  showInhalte();
+  try {
+    const { error: e1 } = await db.from('fach_fortschritt').delete().eq('inhalt_id', id);
+    if (e1) throw e1;
+    const { error: e2 } = await db.from('fach_inhalte').delete().eq('id', id);
+    if (e2) throw e2;
+    showInhalte();
+  } catch (err) {
+    alert('Fehler beim Löschen: ' + err.message);
+    console.error(err);
+    showInhalte();
+  }
 }
 
 async function deleteKapitel(id) {
@@ -140,28 +156,35 @@ async function deleteKapitel(id) {
   
   try {
     // 1. Vokabel-Fortschritte löschen
-    const { data: voks } = await db.from('vokabeln').select('id').eq('kapitel_id', id);
+    const { data: voks, error: e1 } = await db.from('vokabeln').select('id').eq('kapitel_id', id);
+    if (e1) throw e1;
     if (voks?.length) {
       const vokIds = voks.map(v => v.id);
-      await db.from('vokabel_fortschritt').delete().in('vokabel_id', vokIds);
-      await db.from('vokabeln').delete().in('id', vokIds);
+      const { error: e2 } = await db.from('vokabel_fortschritt').delete().in('vokabel_id', vokIds);
+      if (e2) throw e2;
+      const { error: e3 } = await db.from('vokabeln').delete().in('id', vokIds);
+      if (e3) throw e3;
     }
 
     // 2. Fach-Inhalt-Fortschritte löschen
-    const { data: inhalt } = await db.from('fach_inhalte').select('id').eq('kapitel_id', id);
+    const { data: inhalt, error: e4 } = await db.from('fach_inhalte').select('id').eq('kapitel_id', id);
+    if (e4) throw e4;
     if (inhalt?.length) {
       const inhaltIds = inhalt.map(i => i.id);
-      await db.from('fach_fortschritt').delete().in('inhalt_id', inhaltIds);
-      await db.from('fach_inhalte').delete().in('id', inhaltIds);
+      const { error: e5 } = await db.from('fach_fortschritt').delete().in('inhalt_id', inhaltIds);
+      if (e5) throw e5;
+      const { error: e6 } = await db.from('fach_inhalte').delete().in('id', inhaltIds);
+      if (e6) throw e6;
     }
 
     // 3. Kapitel selbst löschen
-    const { error } = await db.from('fach_kapitel').delete().eq('id', id);
-    if (error) throw error;
+    const { error: e7 } = await db.from('fach_kapitel').delete().eq('id', id);
+    if (e7) throw e7;
 
     showInhalte();
   } catch (err) {
-    alert("Fehler beim kompletten Löschen: " + err.message);
+    alert('Fehler beim Löschen: ' + err.message);
+    console.error(err);
     showInhalte();
   }
 }
