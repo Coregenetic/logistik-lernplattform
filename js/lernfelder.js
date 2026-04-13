@@ -59,18 +59,17 @@ async function showLernfeldDetail(lfId) {
   const { data: lf } = await db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle();
   if (!lf || (!lf.freigeschaltet && !isMod)) return showLernfelder();
 
-  // OPTIMIERT: Nur nötige Spalten laden + Fortschritt abrufen
   const [{ data: inhalte }, { data: fp }] = await Promise.all([
     db.from('inhalte').select('id, titel, typ, reihenfolge, lernfeld_id').eq('lernfeld_id', lfId).order('reihenfolge'),
     db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
   ]);
-  const doneIds = (fp || []).map(f => f.inhalt_id); // Liste aller erledigten IDs
+  const doneIds = (fp || []).map(f => f.inhalt_id);
 
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥' };
 
   const inhaltCards = inhalte && inhalte.length
     ? inhalte.map(i => {
-        const isDone = doneIds.includes(i.id); // Prüft, ob dieser Inhalt schon erledigt ist
+        const isDone = doneIds.includes(i.id);
         return `
         <div class="card" style="margin-bottom:12px;cursor:pointer;${isDone ? 'border-left:4px solid var(--correct)' : ''}" onclick="showInhalt(${i.id},${lfId})">
           <div style="display:flex;align-items:center;justify-content:space-between">
@@ -128,7 +127,6 @@ async function showLernfeldDetail(lfId) {
 }
 
 async function showInhalt(inhaltId, lfId) {
-  // Lädt den Inhalt (hier mit * für das Quiz) UND prüft, ob der User genau diesen Inhalt schon markiert hat
   const [{ data: i }, { data: isDone }] = await Promise.all([
     db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle(),
     db.from('fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId).maybeSingle()
@@ -139,8 +137,6 @@ async function showInhalt(inhaltId, lfId) {
     renderQuiz(i, backBtn, () => showLernfeldDetail(i.lernfelder.id));
   } else {
     const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-    
-    // Verändert den Button, falls schon erledigt!
     const doneButtonHTML = isDone 
       ? `<button class="btn btn-secondary" disabled>✅ Bereits erledigt</button>`
       : `<button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>`;
@@ -167,20 +163,32 @@ async function markDone(inhaltId, lfId) {
 
 // ── QUIZ ENGINE ───────────────────────────────────────────────
 function normalize(t) {
+  if (!t) return "";
   return t.toLowerCase()
     .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
     .replace(/[^a-z0-9\s]/g,' ');
 }
 
+// FIX: Sicherheitsprüfung für Keywords eingebaut
 function bewerte(antwort, frage) {
   const n = normalize(antwort);
   const matched = [], missing = [];
-  frage.keywords.forEach(g => {
-    const hit = g.words.some(w => n.includes(normalize(w)));
-    (hit ? matched : missing).push(g.label);
-  });
+  
+  if (frage.keywords && Array.isArray(frage.keywords)) {
+    frage.keywords.forEach(g => {
+      // Prüfen, ob words existiert und ein Array ist
+      const words = Array.isArray(g) ? g : g.words;
+      const label = g.label || (Array.isArray(g) ? g[0] : "Keyword");
+
+      if (words && Array.isArray(words)) {
+        const hit = words.some(w => n.includes(normalize(w)));
+        (hit ? matched : missing).push(label);
+      }
+    });
+  }
+
   const score = matched.length;
-  const req   = frage.required;
+  const req   = frage.required || 1;
   const verdict = score >= req ? 'richtig' : score >= Math.ceil(req/2) ? 'teilweise' : 'falsch';
   return { verdict, matched, missing };
 }
