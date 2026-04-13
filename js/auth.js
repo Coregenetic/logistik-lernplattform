@@ -21,7 +21,7 @@ db.auth.getSession().then(async ({ data: { session } }) => {
     return;
   }
 
-  const roleColors = { admin:'badge-admin', mod:'badge-mod', user:'badge-user' };
+  const roleColors = { admin:'badge-admin', mod:'badge-mod', azubi:'badge-user' };
   const initials   = PROFILE.username.substring(0, 2).toUpperCase();
 
   // Desktop UI befüllen
