@@ -22,7 +22,7 @@ async function showHome() {
   // Desktop
   setDesktop(`
     <h1 style="margin-bottom:4px">Moin, <span class="gradient-text">${PROFILE.username}</span> 👋</h1>
-    <p style="color:var(--muted2);margin-bottom:28px">Was lernst du heute?</p>
+    <p style="color:var(--muted2);margin-bottom:28px">Krieg dein Arsch hoch und lerne!</p>
     <div class="grid-3" style="margin-bottom:28px">
       <div class="stat-card"><div class="stat-value gradient-text">${lfCount||0}</div><div class="stat-label">📚 Lernfelder</div></div>
       <div class="stat-card"><div class="stat-value gradient-text">${inhCount||0}</div><div class="stat-label">📄 Inhalte</div></div>
@@ -36,7 +36,7 @@ async function showHome() {
 
   // Mobile
   setMobile(`
-    <div class="mob-greeting">Hallo, <span class="gradient-text">${PROFILE.username}</span> 👋</div>
+    <div class="mob-greeting">Moin, <span class="gradient-text">${PROFILE.username}</span> 👋</div>
     <div class="mob-greeting-sub">Was lernst du heute?</div>
     <div class="mob-stats">
       <div class="mob-stat"><div class="mob-stat-val gradient-text">${lfCount||0}</div><div class="mob-stat-lbl">📚 Lernfelder</div></div>
