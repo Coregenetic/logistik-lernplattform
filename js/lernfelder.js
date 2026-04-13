@@ -127,19 +127,26 @@ async function showLernfeldDetail(lfId) {
 }
 
 async function showInhalt(inhaltId, lfId) {
-  const [{ data: i }, { data: isDone }] = await Promise.all([
+  const [{ data: i }, { data: fpRows }] = await Promise.all([
     db.from('inhalte').select('*, lernfelder(id,name,nummer)').eq('id', inhaltId).maybeSingle(),
-    db.from('fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId).maybeSingle()
+    // FIX: select statt maybeSingle – gibt immer ein Array zurück, nie null
+    db.from('fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId)
   ]);
   
+  if (!i) return;
+  const isDone = fpRows && fpRows.length > 0;
   const backBtn = `← LF ${i.lernfelder.nummer}`;
+
   if (i.typ === 'quiz') {
-    renderQuiz(i, backBtn, () => showLernfeldDetail(i.lernfelder.id));
+    // FIX: Quiz-Abschluss wird jetzt auch als erledigt gespeichert
+    renderQuiz(i, backBtn, () => showLernfeldDetail(i.lernfelder.id), async () => {
+      await markDone(inhaltId, i.lernfelder.id, false);
+    });
   } else {
     const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     const doneButtonHTML = isDone 
       ? `<button class="btn btn-secondary" disabled>✅ Bereits erledigt</button>`
-      : `<button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id})">✅ Als erledigt markieren</button>`;
+      : `<button class="btn btn-success" onclick="markDone(${inhaltId},${i.lernfelder.id},true)">✅ Als erledigt markieren</button>`;
       
     setDesktop(`
       <button class="btn btn-secondary btn-sm" onclick="showLernfeldDetail(${i.lernfelder.id})" style="margin-bottom:20px">${backBtn}</button>
@@ -156,9 +163,13 @@ async function showInhalt(inhaltId, lfId) {
   }
 }
 
-async function markDone(inhaltId, lfId) {
-  await db.from('fortschritt').upsert({ user_id:USER.id, inhalt_id:inhaltId, abgeschlossen:true, completed_at:new Date().toISOString() });
-  showLernfeldDetail(lfId);
+// FIX: navigate=true springt zurück zur Lernfeld-Übersicht, false (nach Quiz) bleibt auf Ergebnisseite
+async function markDone(inhaltId, lfId, navigate = true) {
+  await db.from('fortschritt').upsert(
+    { user_id: USER.id, inhalt_id: inhaltId, abgeschlossen: true, completed_at: new Date().toISOString() },
+    { onConflict: 'user_id,inhalt_id' }
+  );
+  if (navigate) showLernfeldDetail(lfId);
 }
 
 // ── QUIZ ENGINE ───────────────────────────────────────────────
@@ -231,13 +242,14 @@ const quizStyles = `<style>
   .quiz-restart{padding:14px 32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;margin-top:8px}
 </style>`;
 
-function renderQuiz(inhalt, backLabel, backFn) {
+// FIX: onCompleteFn wird aufgerufen wenn das Quiz abgeschlossen wird (für Fortschritt-Eintrag)
+function renderQuiz(inhalt, backLabel, backFn, onCompleteFn) {
   const fragen = inhalt.inhalt?.fragen || [];
   if (!fragen.length) return alert("Keine Fragen gefunden.");
   
   const shuffled = [...fragen].sort(() => Math.random() - 0.5);
   let current = 0, richtig = 0, teilweise = 0, falsch = 0;
-  window._quizState = { inhalt, backLabel, backFn };
+  window._quizState = { inhalt, backLabel, backFn, onCompleteFn };
 
   function renderView() {
     const isMob = window.innerWidth <= 700;
@@ -267,7 +279,7 @@ function renderQuiz(inhalt, backLabel, backFn) {
 
     if (isMob) {
       setMobile(backBtnHTML + titleHTML + html);
-      setDesktop(""); // Verhindert ID-Kollisionen
+      setDesktop("");
     } else {
       setDesktop(backBtnHTML + titleHTML + html);
       setMobile("");
@@ -304,6 +316,12 @@ function renderQuiz(inhalt, backLabel, backFn) {
       const isMob = window.innerWidth <= 700;
       const pts = richtig + teilweise * 0.5;
       const pct = Math.round((pts / shuffled.length) * 100);
+
+      // FIX: Fortschritt beim Quiz-Abschluss eintragen
+      if (window._quizState.onCompleteFn) {
+        window._quizState.onCompleteFn();
+      }
+
       const resHTML = quizStyles + `<div class="quiz-wrap"><div class="quiz-result">
         <div style="font-size:3rem">🎉</div>
         <h2 style="margin:12px 0 4px">Abgeschlossen!</h2>
@@ -312,7 +330,7 @@ function renderQuiz(inhalt, backLabel, backFn) {
           <span class="qs-r">✅ ${richtig}</span><span class="qs-t">⚡ ${teilweise}</span><span class="qs-f">❌ ${falsch}</span>
         </div>
         <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
-          <button class="quiz-restart" onclick="renderQuiz(window._quizState.inhalt,window._quizState.backLabel,window._quizState.backFn)">🔄 Nochmal</button>
+          <button class="quiz-restart" onclick="renderQuiz(window._quizState.inhalt,window._quizState.backLabel,window._quizState.backFn,window._quizState.onCompleteFn)">🔄 Nochmal</button>
           <button class="btn btn-secondary" onclick="window._quizState.backFn()">← Zurück</button>
         </div>
       </div></div>`;
