@@ -83,7 +83,7 @@ async function showInhalte() {
     <div style="display:flex; gap:8px; background:var(--surface2); border-radius:10px; padding:4px; margin-bottom:20px; width:fit-content">
       <button id="itab-lf-btn" class="btn" onclick="switchInhalteTab('lf')">📚 Lernfelder</button>
       <button id="itab-fach-btn" class="btn" onclick="switchInhalteTab('fach')">📘 Fächer</button>
-      <button id="itab-kap-btn" class="btn" onclick="switchInhalteTab('kap')">📂 Kapitel</button>
+      <button id="itab-kap-btn"  class="btn" onclick="switchInhalteTab('kap')">📂 Kapitel</button>
     </div>
     <div id="itab-lf">${lfGroupsHTML}</div>
     <div id="itab-fach" style="display:none">${fachInhalteHTML}</div>
@@ -116,33 +116,54 @@ function switchInhalteTab(tab) {
   });
 }
 
-// ── LÖSCH-LOGIK (VERBESSERT) ──────────────────────────────────
+// ── LÖSCH-LOGIK (Nuklear-Option für Kapitel) ──────────────────
 
 async function deleteInhalt(id) {
-  if (!confirm('Diesen Inhalt und den dazugehörigen Fortschritt aller Nutzer wirklich löschen?')) return;
-  // 1. Fortschritt löschen (wegen Foreign Key Constraint)
+  if (!confirm('Diesen Inhalt wirklich löschen?')) return;
+  showSpinner();
   await db.from('fortschritt').delete().eq('inhalt_id', id);
-  // 2. Inhalt löschen
-  const { error } = await db.from('inhalte').delete().eq('id', id);
-  if (error) alert("Fehler: " + error.message);
+  await db.from('inhalte').delete().eq('id', id);
   showInhalte();
 }
 
 async function deleteFachInhalt(id) {
-  if (!confirm('Diesen Fach-Inhalt und den dazugehörigen Fortschritt wirklich löschen?')) return;
-  // 1. Fortschritt löschen
+  if (!confirm('Diesen Fach-Inhalt wirklich löschen?')) return;
+  showSpinner();
   await db.from('fach_fortschritt').delete().eq('inhalt_id', id);
-  // 2. Inhalt löschen
-  const { error } = await db.from('fach_inhalte').delete().eq('id', id);
-  if (error) alert("Fehler: " + error.message);
+  await db.from('fach_inhalte').delete().eq('id', id);
   showInhalte();
 }
 
 async function deleteKapitel(id) {
-  if (!confirm('Kapitel löschen? Alle Inhalte darin müssen vorher gelöscht werden!')) return;
-  const { error } = await db.from('fach_kapitel').delete().eq('id', id);
-  if (error) alert("Löschen fehlgeschlagen. Sind noch Inhalte im Kapitel? " + error.message);
-  showInhalte();
+  if (!confirm('ACHTUNG: Möchtest du dieses Kapitel inklusive ALLER Inhalte, Vokabeln und Fortschritte wirklich unwiderruflich löschen?')) return;
+  showSpinner();
+  
+  try {
+    // 1. Vokabel-Fortschritte löschen
+    const { data: voks } = await db.from('vokabeln').select('id').eq('kapitel_id', id);
+    if (voks?.length) {
+      const vokIds = voks.map(v => v.id);
+      await db.from('vokabel_fortschritt').delete().in('vokabel_id', vokIds);
+      await db.from('vokabeln').delete().in('id', vokIds);
+    }
+
+    // 2. Fach-Inhalt-Fortschritte löschen
+    const { data: inhalt } = await db.from('fach_inhalte').select('id').eq('kapitel_id', id);
+    if (inhalt?.length) {
+      const inhaltIds = inhalt.map(i => i.id);
+      await db.from('fach_fortschritt').delete().in('inhalt_id', inhaltIds);
+      await db.from('fach_inhalte').delete().in('id', inhaltIds);
+    }
+
+    // 3. Kapitel selbst löschen
+    const { error } = await db.from('fach_kapitel').delete().eq('id', id);
+    if (error) throw error;
+
+    showInhalte();
+  } catch (err) {
+    alert("Fehler beim kompletten Löschen: " + err.message);
+    showInhalte();
+  }
 }
 
 // ── FORMULAR-LOGIK ───────────────────────────────────────────
