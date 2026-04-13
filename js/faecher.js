@@ -78,7 +78,6 @@ async function showKapitel(kapitelId, fachId) {
   showSpinner();
   const { data: kap } = await db.from('fach_kapitel').select('*, faecher(id,name,icon)').eq('id', kapitelId).maybeSingle();
   
-  // OPTIMIERT: Lädt Inhalte + Fortschritt!
   const [{ data: inhalte }, { data: fp }] = await Promise.all([
     db.from('fach_inhalte').select('id, titel, typ, reihenfolge, kapitel_id').eq('kapitel_id', kapitelId).order('reihenfolge'),
     db.from('fach_fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
@@ -178,21 +177,26 @@ async function showKapitel(kapitelId, fachId) {
 }
 
 async function showFachInhalt(inhaltId, kapitelId, fachId) {
-  const [{ data: i }, { data: isDone }] = await Promise.all([
+  const [{ data: i }, { data: fpRows }] = await Promise.all([
     db.from('fach_inhalte').select('*, fach_kapitel(id,name,faecher(name))').eq('id', inhaltId).maybeSingle(),
-    db.from('fach_fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId).maybeSingle()
+    // FIX: select statt maybeSingle – gibt immer ein Array zurück, nie null
+    db.from('fach_fortschritt').select('id').eq('user_id', USER.id).eq('inhalt_id', inhaltId)
   ]);
   
   if (!i) return;
+  const isDone = fpRows && fpRows.length > 0;
 
   if (i.typ === 'quiz') {
-    renderQuiz(i, `← ${i.fach_kapitel.name}`, () => showKapitel(kapitelId, fachId));
+    // FIX: Quiz-Abschluss wird jetzt auch als erledigt gespeichert
+    renderQuiz(i, `← ${i.fach_kapitel.name}`, () => showKapitel(kapitelId, fachId), async () => {
+      await markFachDone(inhaltId, kapitelId, fachId, false);
+    });
   } else {
     const html = (i.inhalt?.text||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     
     const doneButtonHTML = isDone 
       ? `<button class="btn btn-secondary" disabled>✅ Bereits erledigt</button>`
-      : `<button class="btn btn-success" onclick="markFachDone(${inhaltId},${kapitelId},${fachId})">✅ Als erledigt markieren</button>`;
+      : `<button class="btn btn-success" onclick="markFachDone(${inhaltId},${kapitelId},${fachId},true)">✅ Als erledigt markieren</button>`;
 
     setDesktop(`
       <button class="btn btn-secondary btn-sm" onclick="showKapitel(${kapitelId},${fachId})" style="margin-bottom:20px">← ${i.fach_kapitel.name}</button>
@@ -209,7 +213,11 @@ async function showFachInhalt(inhaltId, kapitelId, fachId) {
   }
 }
 
-async function markFachDone(inhaltId, kapitelId, fachId) {
-  await db.from('fach_fortschritt').upsert({ user_id:USER.id, inhalt_id:inhaltId, abgeschlossen:true, completed_at:new Date().toISOString() });
-  showKapitel(kapitelId, fachId);
+// FIX: navigate=true springt zurück zum Kapitel, false (nach Quiz) bleibt auf Ergebnisseite
+async function markFachDone(inhaltId, kapitelId, fachId, navigate = true) {
+  await db.from('fach_fortschritt').upsert(
+    { user_id: USER.id, inhalt_id: inhaltId, abgeschlossen: true, completed_at: new Date().toISOString() },
+    { onConflict: 'user_id,inhalt_id' }
+  );
+  if (navigate) showKapitel(kapitelId, fachId);
 }
