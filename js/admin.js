@@ -39,7 +39,7 @@ async function showAdmin() {
         <select class="form-input" style="padding:4px 8px;font-size:0.8rem;width:auto"
           onchange="changeRole('${u.id}', this.value)"
           ${u.id===USER.id?'disabled title="Eigene Rolle nicht änderbar"':''}>
-          <option value="user"  ${u.role==='user' ?'selected':''}>User</option>
+          <option value="azubi"  ${u.role==='azubi' ?'selected':''}>Azubi</option>
           <option value="mod"   ${u.role==='mod'  ?'selected':''}>Mod</option>
           <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
         </select>
@@ -55,7 +55,7 @@ async function showAdmin() {
       </div>
       <select class="form-input" style="padding:4px 6px;font-size:0.78rem;width:72px"
         onchange="changeRole('${u.id}', this.value)" ${u.id===USER.id?'disabled':''}>
-        <option value="user"  ${u.role==='user' ?'selected':''}>User</option>
+        <option value="azubi"  ${u.role==='azubi' ?'selected':''}>Azubi</option>
         <option value="mod"   ${u.role==='mod'  ?'selected':''}>Mod</option>
         <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
       </select>
