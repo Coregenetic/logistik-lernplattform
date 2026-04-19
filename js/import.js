@@ -127,14 +127,34 @@ shipment,Sendung / Lieferung,The shipment arrived on time.</pre>
       </div>
 
       <div class="card" style="margin-bottom:16px">
-        <h3 style="margin-bottom:6px">3. Unterrichtsmaterial einfügen</h3>
-        <p style="color:var(--muted2);font-size:0.82rem;margin-bottom:12px">
-          Füge hier den Text aus deinem Arbeitsblatt, deiner Mitschrift oder dem Lehrbuch ein.
-          Je mehr Inhalt, desto bessere Fragen.
+        <h3 style="margin-bottom:6px">3. Unterrichtsmaterial</h3>
+        <p style="color:var(--muted2);font-size:0.82rem;margin-bottom:14px">
+          Lade eine Datei hoch oder füge den Text direkt ein. Je mehr Inhalt, desto bessere Fragen.
         </p>
-        <textarea class="form-input" id="ai-text" rows="12"
+
+        <!-- Datei-Upload -->
+        <div style="border:2px dashed var(--border);border-radius:14px;padding:20px;text-align:center;margin-bottom:14px;cursor:pointer;transition:border-color 0.2s"
+             id="ai-drop-zone"
+             onclick="document.getElementById('ai-file-input').click()"
+             ondragover="aiDragOver(event)"
+             ondragleave="aiDragLeave(event)"
+             ondrop="aiDrop(event)">
+          <div style="font-size:2rem;margin-bottom:8px">📄</div>
+          <div style="font-weight:600;margin-bottom:4px">PDF oder Word-Datei hochladen</div>
+          <div style="font-size:0.82rem;color:var(--muted2)">Klicken oder Datei hier reinziehen (.pdf, .docx)</div>
+          <div id="ai-file-status" style="margin-top:10px;font-size:0.82rem;color:var(--accent)"></div>
+        </div>
+        <input type="file" id="ai-file-input" accept=".pdf,.docx"
+               style="display:none" onchange="aiHandleFile(this.files[0])">
+
+        <!-- Text-Bereich -->
+        <div style="font-size:0.82rem;color:var(--muted2);margin-bottom:6px;text-align:center">
+          — oder Text direkt einfügen —
+        </div>
+        <textarea class="form-input" id="ai-text" rows="8"
           placeholder="Hier den Unterrichtstext einfügen..."
           style="font-size:0.88rem;line-height:1.6"></textarea>
+        <div id="ai-char-count" style="font-size:0.75rem;color:var(--muted2);margin-top:4px;text-align:right">0 Zeichen</div>
       </div>
 
       <button class="btn btn-primary" id="ai-generate-btn" onclick="aiGenerateQuiz()"
@@ -160,6 +180,12 @@ shipment,Sendung / Lieferung,The shipment arrived on time.</pre>
 
   setDesktop(html);
   setMobile(`<button class="mob-back" onclick="showModMenu()">← Zurück</button>${html}`);
+
+  // Char-Count live aktualisieren
+  setTimeout(() => {
+    const ta = document.getElementById('ai-text');
+    if (ta) ta.addEventListener('input', updateAiCharCount);
+  }, 100);
 }
 
 function switchImportTab(tab) {
@@ -176,19 +202,106 @@ function switchImportTab(tab) {
 }
 
 // ── FEATURE 2: KI-Quiz-Generator ─────────────────────────────
+
+// Drag & Drop Hilfsfunktionen
+function aiDragOver(e) {
+  e.preventDefault();
+  document.getElementById('ai-drop-zone').style.borderColor = 'var(--accent)';
+}
+function aiDragLeave(e) {
+  document.getElementById('ai-drop-zone').style.borderColor = 'var(--border)';
+}
+function aiDrop(e) {
+  e.preventDefault();
+  aiDragLeave(e);
+  const file = e.dataTransfer.files[0];
+  if (file) aiHandleFile(file);
+}
+
+async function aiHandleFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('ai-file-status');
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (!['pdf','docx'].includes(ext)) {
+    statusEl.textContent = '❌ Nur PDF und .docx werden unterstützt.';
+    statusEl.style.color = 'var(--danger)';
+    return;
+  }
+
+  statusEl.textContent = '⏳ Datei wird verarbeitet...';
+  statusEl.style.color = 'var(--accent)';
+
+  try {
+    if (ext === 'pdf') {
+      // PDF als base64 speichern – wird direkt an Claude geschickt
+      const base64 = await fileToBase64(file);
+      window._aiPdfBase64 = base64;
+      window._aiPdfFilename = file.name;
+      window._aiDocxText = null;
+      statusEl.textContent = `✅ ${file.name} geladen (wird direkt an Claude geschickt)`;
+      statusEl.style.color = 'var(--correct)';
+      document.getElementById('ai-text').placeholder = 'PDF wird direkt verarbeitet – Textfeld muss nicht ausgefüllt werden.';
+    } else {
+      // DOCX: Text extrahieren via mammoth
+      const mammoth = await loadMammoth();
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      const text = result.value.trim();
+      if (!text) throw new Error('Kein Text im Dokument gefunden.');
+      window._aiDocxText = text;
+      window._aiPdfBase64 = null;
+      document.getElementById('ai-text').value = text;
+      updateAiCharCount();
+      statusEl.textContent = `✅ ${file.name} – ${text.length} Zeichen extrahiert`;
+      statusEl.style.color = 'var(--correct)';
+    }
+  } catch(err) {
+    statusEl.textContent = '❌ Fehler: ' + err.message;
+    statusEl.style.color = 'var(--danger)';
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadMammoth() {
+  return new Promise((resolve, reject) => {
+    if (window.mammoth) return resolve(window.mammoth);
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js';
+    script.onload = () => resolve(window.mammoth);
+    script.onerror = () => reject(new Error('mammoth.js konnte nicht geladen werden.'));
+    document.head.appendChild(script);
+  });
+}
+
+function updateAiCharCount() {
+  const ta = document.getElementById('ai-text');
+  const el = document.getElementById('ai-char-count');
+  if (ta && el) el.textContent = ta.value.length + ' Zeichen';
+}
+
 async function aiGenerateQuiz() {
-  const apiKey  = sessionStorage.getItem('claude_api_key');
-  const text    = document.getElementById('ai-text')?.value.trim();
-  const anzahl  = parseInt(document.getElementById('ai-anzahl')?.value) || 8;
+  const apiKey   = sessionStorage.getItem('claude_api_key');
+  const text     = document.getElementById('ai-text')?.value.trim();
+  const anzahl   = parseInt(document.getElementById('ai-anzahl')?.value) || 8;
   const statusEl = document.getElementById('ai-status');
   const btn      = document.getElementById('ai-generate-btn');
+  const hasPdf   = !!window._aiPdfBase64;
 
   if (!apiKey) {
     statusEl.innerHTML = '<div class="alert alert-error">❌ Kein API Key gesetzt. Geh zu Inhalte → 🔑 API Key.</div>';
     return;
   }
-  if (!text || text.length < 50) {
-    statusEl.innerHTML = '<div class="alert alert-error">❌ Bitte mindestens 50 Zeichen Text eingeben.</div>';
+  if (!hasPdf && (!text || text.length < 50)) {
+    statusEl.innerHTML = '<div class="alert alert-error">❌ Bitte eine Datei hochladen oder mindestens 50 Zeichen Text eingeben.</div>';
     return;
   }
 
@@ -198,7 +311,7 @@ async function aiGenerateQuiz() {
   document.getElementById('ai-preview').style.display = 'none';
   document.getElementById('ai-save-btn').style.display = 'none';
 
-  const prompt = `Du bist ein Lernassistent für Logistik-Auszubildende. Analysiere den folgenden Unterrichtstext und erstelle daraus genau ${anzahl} Quizfragen.
+  const systemPrompt = `Du bist ein Lernassistent für Logistik-Auszubildende. Erstelle aus dem Unterrichtsmaterial genau ${anzahl} Quizfragen.
 
 WICHTIG: Antworte NUR mit einem validen JSON-Objekt. Kein Text davor oder danach. Kein Markdown. Kein \`\`\`json.
 
@@ -211,9 +324,18 @@ Regeln:
 - Keywords: 2-4 Gruppen pro Frage, je 1-4 Synonyme pro Gruppe
 - required: wie viele Keyword-Gruppen erkannt werden müssen (1-3)
 - Fragen auf Deutsch
+- Das optionale Feld "bild" kannst du weglassen`;
 
-Unterrichtstext:
-${text}`;
+  // Nachricht aufbauen – PDF oder Text
+  let messageContent;
+  if (hasPdf) {
+    messageContent = [
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: window._aiPdfBase64 } },
+      { type: 'text', text: systemPrompt }
+    ];
+  } else {
+    messageContent = [{ type: 'text', text: systemPrompt + '\n\nUnterrichtstext:\n' + text }];
+  }
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -227,7 +349,7 @@ ${text}`;
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
+        messages: [{ role: 'user', content: messageContent }]
       })
     });
 
@@ -276,11 +398,18 @@ function aiShowPreview(parsed) {
         <button class="btn btn-danger btn-sm" style="flex-shrink:0;padding:4px 8px;font-size:0.75rem"
                 onclick="aiDeleteFrage(${i})">🗑</button>
       </div>
-      <div style="font-size:0.8rem;color:var(--muted2);margin-bottom:4px;padding-left:18px">
+      <div style="font-size:0.8rem;color:var(--muted2);margin-bottom:6px;padding-left:18px">
         <strong style="color:var(--text)">Muster:</strong> ${f.muster.substring(0,100)}${f.muster.length>100?'...':''}
       </div>
-      <div style="font-size:0.78rem;color:var(--accent);padding-left:18px">
+      <div style="font-size:0.78rem;color:var(--accent);padding-left:18px;margin-bottom:8px">
         ${f.keywords.length} Keyword-Gruppen · mind. ${f.required||1} erkannt → ✅
+      </div>
+      <div style="padding-left:18px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.78rem;color:var(--muted2);white-space:nowrap">🖼 ImgBB URL:</span>
+        <input class="form-input" type="url" placeholder="https://i.ibb.co/... (optional)"
+               style="font-size:0.78rem;padding:5px 10px;flex:1"
+               value="${f.bild||''}"
+               oninput="aiSetBild(${i}, this.value)">
       </div>
     </div>`).join('');
 
@@ -444,4 +573,14 @@ async function vokSave() {
   btn.style.display = 'none';
   window._vokRows = null;
   setTimeout(() => resultEl.innerHTML = '', 3000);
+}
+
+// Bild-URL für eine Frage setzen
+function aiSetBild(index, url) {
+  if (!window._aiGeneratedQuiz?.fragen) return;
+  if (url.trim()) {
+    window._aiGeneratedQuiz.fragen[index].bild = url.trim();
+  } else {
+    delete window._aiGeneratedQuiz.fragen[index].bild;
+  }
 }
