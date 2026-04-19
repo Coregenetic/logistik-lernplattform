@@ -216,16 +216,24 @@ async function aiHandleFile(file) {
       // PDF: Text-Extraktion via PDF.js
       const arrayBuffer = await file.arrayBuffer();
       const pdfjs = await loadPdfJs();
-      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+      const pdf = await loadingTask.promise;
       let fullText = '';
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p);
         const tc   = await page.getTextContent();
-        fullText  += tc.items.map(i => i.str).join(' ') + '\n';
+        const pageText = tc.items
+          .map(item => item.str + (item.hasEOL ? '\n' : ' '))
+          .join('');
+        fullText += pageText + '\n';
       }
-      document.getElementById('ai-text').value = fullText.trim();
+      const cleaned = fullText.replace(/\s+/g, ' ').trim();
+      if (!cleaned || cleaned.length < 10) {
+        throw new Error('Kein lesbarer Text gefunden. Ist das PDF möglicherweise ein Scan ohne OCR?');
+      }
+      document.getElementById('ai-text').value = cleaned;
       updateAiCharCount();
-      statusEl.textContent = `✅ ${file.name} – ${fullText.trim().length} Zeichen extrahiert`;
+      statusEl.textContent = `✅ ${file.name} – ${cleaned.length} Zeichen extrahiert`;
       statusEl.style.color = 'var(--correct)';
     } else {
       // DOCX: mammoth.js
@@ -258,12 +266,17 @@ function loadMammoth() {
 
 function loadPdfJs() {
   return new Promise((resolve, reject) => {
-    if (window.pdfjsLib) return resolve(window.pdfjsLib);
+    if (window.pdfjsLib) {
+      // Worker nochmal setzen falls nötig
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      return resolve(window.pdfjsLib);
+    }
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
     script.onload = () => {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       resolve(window.pdfjsLib);
     };
     script.onerror = () => reject(new Error('PDF.js konnte nicht geladen werden.'));
