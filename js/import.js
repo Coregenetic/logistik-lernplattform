@@ -1,6 +1,7 @@
 // ── IMPORTIEREN (MOD+) ───────────────────────────────────────
 async function showQuizImport() {
   setActive('lnk-quiz-import', 'bn-mod');
+  window._aiImages = window._aiImages || [];
   if (!window._lf) {
     const { data } = await db.from('lernfelder').select('id, nummer, name').order('nummer');
     window._lf = data || [];
@@ -132,12 +133,21 @@ shipment,Sendung / Lieferung,The shipment arrived on time.</pre>
              ondragleave="aiDragLeave(event)"
              ondrop="aiDrop(event)">
           <div style="font-size:2rem;margin-bottom:8px">📄</div>
-          <div style="font-weight:600;margin-bottom:4px">PDF oder Word-Datei hochladen</div>
-          <div style="font-size:0.82rem;color:var(--muted2)">Klicken oder Datei hier reinziehen (.pdf, .docx)</div>
+          <div style="font-weight:600;margin-bottom:4px">Datei hochladen</div>
+          <div style="font-size:0.82rem;color:var(--muted2)">.pdf · .docx · .jpg · .png · .webp – oder hier reinziehen</div>
           <div id="ai-file-status" style="margin-top:10px;font-size:0.82rem;color:var(--accent)"></div>
         </div>
-        <input type="file" id="ai-file-input" accept=".pdf,.docx"
-               style="display:none" onchange="aiHandleFile(this.files[0])">
+        <input type="file" id="ai-file-input" accept=".pdf,.docx,.jpg,.jpeg,.png,.webp"
+               multiple style="display:none" onchange="aiHandleFiles(this.files)">
+
+        <!-- Bild-Vorschau -->
+        <div id="ai-img-preview" style="display:none;margin-bottom:14px">
+          <div style="font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text)">
+            📸 Hochgeladene Bilder
+            <button onclick="aiClearImages()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.78rem;margin-left:8px">✕ Alle entfernen</button>
+          </div>
+          <div id="ai-img-thumbs" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
 
         <div style="font-size:0.82rem;color:var(--muted2);margin-bottom:6px;text-align:center">
           — oder Text direkt einfügen —
@@ -197,13 +207,23 @@ function aiDrop(e) {
   if (file) aiHandleFile(file);
 }
 
+
+
+async function aiHandleFiles(files) {
+  if (!files || !files.length) return;
+  for (const file of files) {
+    await aiHandleFile(file);
+  }
+}
+
 async function aiHandleFile(file) {
   if (!file) return;
   const statusEl = document.getElementById('ai-file-status');
   const ext = file.name.split('.').pop().toLowerCase();
+  const imgExts = ['jpg','jpeg','png','webp'];
 
-  if (!['pdf','docx'].includes(ext)) {
-    statusEl.textContent = '❌ Nur PDF und .docx werden unterstützt.';
+  if (!['pdf','docx',...imgExts].includes(ext)) {
+    statusEl.textContent = '❌ Nur PDF, .docx und Bilder werden unterstützt.';
     statusEl.style.color = 'var(--danger)';
     return;
   }
@@ -212,7 +232,17 @@ async function aiHandleFile(file) {
   statusEl.style.color = 'var(--accent)';
 
   try {
-    if (ext === 'pdf') {
+    if (imgExts.includes(ext)) {
+      // Bild als base64 speichern
+      const base64 = await fileToBase64(file);
+      const mediaType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+                      : ext === 'png' ? 'image/png' : 'image/webp';
+      window._aiImages.push({ base64, mediaType, name: file.name });
+      aiUpdateImgPreview();
+      statusEl.textContent = `✅ ${window._aiImages.length} Bild(er) geladen`;
+      statusEl.style.color = 'var(--correct)';
+
+    } else if (ext === 'pdf') {
       // PDF: Text-Extraktion via PDF.js
       const arrayBuffer = await file.arrayBuffer();
       const pdfjs = await loadPdfJs();
@@ -229,12 +259,13 @@ async function aiHandleFile(file) {
       }
       const cleaned = fullText.replace(/\s+/g, ' ').trim();
       if (!cleaned || cleaned.length < 10) {
-        throw new Error('Kein lesbarer Text gefunden. Ist das PDF möglicherweise ein Scan ohne OCR?');
+        throw new Error('Kein lesbarer Text – das PDF scheint ein Scan zu sein. Bitte als Bild (.jpg/.png) hochladen.');
       }
       document.getElementById('ai-text').value = cleaned;
       updateAiCharCount();
       statusEl.textContent = `✅ ${file.name} – ${cleaned.length} Zeichen extrahiert`;
       statusEl.style.color = 'var(--correct)';
+
     } else {
       // DOCX: mammoth.js
       const mammoth = await loadMammoth();
@@ -248,9 +279,51 @@ async function aiHandleFile(file) {
       statusEl.style.color = 'var(--correct)';
     }
   } catch(err) {
-    statusEl.textContent = '❌ Fehler: ' + err.message;
+    statusEl.textContent = '❌ ' + err.message;
     statusEl.style.color = 'var(--danger)';
   }
+}
+
+function aiUpdateImgPreview() {
+  const wrap   = document.getElementById('ai-img-preview');
+  const thumbs = document.getElementById('ai-img-thumbs');
+  if (!wrap || !thumbs) return;
+  if (!window._aiImages.length) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  thumbs.innerHTML = window._aiImages.map((img, i) => `
+    <div style="position:relative;display:inline-block">
+      <img src="data:${img.mediaType};base64,${img.base64}"
+           style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+      <button onclick="aiRemoveImage(${i})"
+              style="position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;border:none;border-radius:99px;width:18px;height:18px;font-size:0.7rem;cursor:pointer;line-height:1;padding:0">✕</button>
+      <div style="font-size:0.65rem;color:var(--muted2);text-align:center;margin-top:3px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${img.name}</div>
+    </div>`).join('');
+}
+
+function aiRemoveImage(index) {
+  window._aiImages.splice(index, 1);
+  aiUpdateImgPreview();
+  if (!window._aiImages.length) {
+    document.getElementById('ai-file-status').textContent = '';
+  }
+}
+
+function aiClearImages() {
+  window._aiImages = [];
+  aiUpdateImgPreview();
+  document.getElementById('ai-file-status').textContent = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 function loadMammoth() {
@@ -291,51 +364,74 @@ function updateAiCharCount() {
 }
 
 async function aiKopierenFuerClaude() {
-  const text   = document.getElementById('ai-text')?.value.trim();
-  const anzahl = parseInt(document.getElementById('ai-anzahl')?.value) || 8;
+  const text     = document.getElementById('ai-text')?.value.trim();
+  const anzahl   = parseInt(document.getElementById('ai-anzahl')?.value) || 8;
   const statusEl = document.getElementById('ai-copy-status');
+  const hasImgs  = window._aiImages && window._aiImages.length > 0;
 
-  if (!text || text.length < 50) {
-    statusEl.innerHTML = '<span style="color:var(--danger)">❌ Bitte zuerst eine Datei hochladen oder Text eingeben.</span>';
+  if (!hasImgs && (!text || text.length < 50)) {
+    statusEl.innerHTML = '<span style="color:var(--danger)">❌ Bitte zuerst eine Datei/Bild hochladen oder Text eingeben.</span>';
     return;
   }
 
-  const prompt = `Erstelle aus folgendem Unterrichtsmaterial genau ${anzahl} Quizfragen für Logistik-Auszubildende.
+  const anweisung = `Erstelle aus dem folgenden Unterrichtsmaterial genau ${anzahl} Quizfragen für Logistik-Auszubildende.
 
-Antworte NUR mit einem JSON-Objekt in diesem Format – kein Text davor oder danach, kein Markdown:
+Antworte NUR mit einem JSON-Objekt – kein Text davor oder danach, kein Markdown:
 {"fragen":[{"frage":"...","muster":"Musterlösung in 1-3 Sätzen","keywords":[{"label":"Begriff","words":["wort1","wort2"]}],"required":2}]}
 
 Regeln:
-- Prüfungsrelevante, konkrete Fragen
+- Prüfungsrelevante, konkrete Fragen auf Deutsch
 - Vollständige Musterantworten
 - 2-4 Keyword-Gruppen pro Frage, je 1-4 Synonyme
-- required: 1-3 (wie viele Gruppen erkannt werden müssen)
-- Alle Fragen auf Deutsch
+- required: 1-3${text ? '\n\nUnterrichtsmaterial:\n' + text : '\n\nDas Unterrichtsmaterial ist als Bild/Bilder beigefügt.'}`;
 
-Unterrichtsmaterial:
-${text}`;
+  if (hasImgs) {
+    // Mit Bildern: Claude.ai unterstützt kein direktes base64 im Textfeld
+    // Wir zeigen Anleitung + Text zum Kopieren
+    try { await navigator.clipboard.writeText(anweisung); } catch(e) {}
 
-  try {
-    await navigator.clipboard.writeText(prompt);
+    // Bilder als Download anbieten
     statusEl.innerHTML = `
-      <div style="background:#10b98115;border:1px solid #10b98144;border-radius:12px;padding:14px;text-align:left">
-        <div style="font-weight:700;color:var(--correct);margin-bottom:8px">✅ In Zwischenablage kopiert!</div>
-        <div style="font-size:0.85rem;color:var(--muted2);line-height:1.7">
-          Jetzt einfach:<br>
-          1. Geh zum <strong style="color:var(--text)">Claude Chat</strong> (dieser Tab)<br>
-          2. Drücke <strong style="color:var(--text)">Strg+V</strong> und schicke die Nachricht ab<br>
-          3. Kopiere das JSON aus der Antwort<br>
-          4. Geh zu <strong style="color:var(--text)">❓ Quiz → JSON einfügen → Speichern</strong>
+      <div style="background:#10b98115;border:1px solid #10b98144;border-radius:12px;padding:16px;text-align:left">
+        <div style="font-weight:700;color:var(--correct);margin-bottom:10px">✅ Anweisung kopiert!</div>
+        <div style="font-size:0.85rem;line-height:1.9;color:var(--muted2)">
+          <strong style="color:var(--text)">Schritte mit Bildern:</strong><br>
+          1. Lade die Bilder unten herunter<br>
+          2. Geh zu <strong style="color:var(--text)">claude.ai</strong> und öffne einen neuen Chat<br>
+          3. Lade die Bilder dort hoch (📎 Anhang-Button)<br>
+          4. Füge die Anweisung ein (<strong style="color:var(--text)">Strg+V</strong>) und sende ab<br>
+          5. Kopiere das JSON zurück in den <strong style="color:var(--text)">❓ Quiz Tab</strong>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+          ${window._aiImages.map((img, i) => `
+            <a href="data:${img.mediaType};base64,${img.base64}"
+               download="${img.name}"
+               class="btn btn-secondary btn-sm">
+              ⬇ ${img.name}
+            </a>`).join('')}
         </div>
       </div>`;
-  } catch(err) {
-    // Fallback: Textarea zum manuellen Kopieren
-    statusEl.innerHTML = `
-      <div style="background:var(--surface2);border-radius:12px;padding:14px;text-align:left">
-        <div style="font-weight:600;margin-bottom:8px">📋 Manuell kopieren:</div>
-        <textarea class="form-input" style="font-size:0.78rem;font-family:monospace;height:120px" readonly>${prompt}</textarea>
-        <div style="font-size:0.82rem;color:var(--muted2);margin-top:6px">Alles markieren (Strg+A) und kopieren (Strg+C), dann im Chat einfügen.</div>
-      </div>`;
+  } else {
+    // Nur Text: direkt kopieren
+    try {
+      await navigator.clipboard.writeText(anweisung);
+      statusEl.innerHTML = `
+        <div style="background:#10b98115;border:1px solid #10b98144;border-radius:12px;padding:14px;text-align:left">
+          <div style="font-weight:700;color:var(--correct);margin-bottom:8px">✅ In Zwischenablage kopiert!</div>
+          <div style="font-size:0.85rem;color:var(--muted2);line-height:1.7">
+            1. Geh zu <strong style="color:var(--text)">diesem Chat (Claude)</strong><br>
+            2. Drücke <strong style="color:var(--text)">Strg+V</strong> und schicke ab<br>
+            3. Kopiere das JSON in den <strong style="color:var(--text)">❓ Quiz Tab</strong>
+          </div>
+        </div>`;
+    } catch(err) {
+      statusEl.innerHTML = `
+        <div style="background:var(--surface2);border-radius:12px;padding:14px;text-align:left">
+          <div style="font-weight:600;margin-bottom:8px">📋 Manuell kopieren:</div>
+          <textarea class="form-input" style="font-size:0.78rem;font-family:monospace;height:120px" readonly>${anweisung}</textarea>
+          <div style="font-size:0.82rem;color:var(--muted2);margin-top:6px">Alles markieren (Strg+A) → Strg+C → im Chat einfügen.</div>
+        </div>`;
+    }
   }
 }
 
