@@ -5,9 +5,10 @@ function buildSidebar() {
   const isAdmin = PROFILE.role === 'admin';
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-title">Navigation</div>
-    <button class="sidebar-link active" id="lnk-home"    onclick="showHome()">       <span class="sidebar-icon">🏠</span>Dashboard</button>
-    <button class="sidebar-link"        id="lnk-lf"      onclick="showLernfelder()"> <span class="sidebar-icon">📚</span>Lernfelder</button>
-    <button class="sidebar-link"        id="lnk-fp"      onclick="showFortschritt()"><span class="sidebar-icon">📊</span>Mein Fortschritt</button>
+    <button class="sidebar-link active" id="lnk-home"      onclick="showHome()">        <span class="sidebar-icon">🏠</span>Dashboard</button>
+    <button class="sidebar-link"        id="lnk-lf"        onclick="showLernfelder()">  <span class="sidebar-icon">📚</span>Lernfelder</button>
+    <button class="sidebar-link"        id="lnk-pruefung"  onclick="showPruefungen()">  <span class="sidebar-icon">📝</span>Prüfungen & Arbeiten</button>
+    <button class="sidebar-link"        id="lnk-fp"        onclick="showFortschritt()"> <span class="sidebar-icon">📊</span>Mein Fortschritt</button>
 
     <div class="sidebar-title" style="margin-top:12px">Fächer</div>
     <button class="sidebar-link" id="lnk-fach-1" onclick="showFach(1)"><span class="sidebar-icon">🇬🇧</span>Englisch</button>
@@ -18,13 +19,15 @@ function buildSidebar() {
     <div class="sidebar-title" style="margin-top:12px">Verwaltung</div>
     <button class="sidebar-link" id="lnk-inhalte"     onclick="showInhalte()">    <span class="sidebar-icon">✏️</span>Inhalte bearbeiten</button>
     <button class="sidebar-link" id="lnk-quiz-import" onclick="showQuizImport()"> <span class="sidebar-icon">⚡</span>Importieren</button>
+    <button class="sidebar-link" id="lnk-arbeit-neu"  onclick="showArbeitErstellen()"><span class="sidebar-icon">➕</span>Arbeit erstellen</button>
     ` : ''}
     ${isAdmin ? `
     <button class="sidebar-link" id="lnk-admin" onclick="showAdmin()"><span class="sidebar-icon">⚙️</span>Admin Panel</button>
     ` : ''}
-    
+
     <div style="flex-grow:1"></div>
-    <button class="sidebar-link" style="margin-top:20px; color:var(--danger)" onclick="db.auth.signOut().then(()=>window.location.href='index.html')">
+    <button class="sidebar-link" style="margin-top:20px;color:var(--danger)"
+            onclick="db.auth.signOut().then(()=>window.location.href='index.html')">
       <span class="sidebar-icon">🚪</span>Abmelden
     </button>
   `;
@@ -34,10 +37,11 @@ function buildBottomNav() {
   const isMod   = ['admin','mod'].includes(PROFILE.role);
   const isAdmin = PROFILE.role === 'admin';
   const items = [
-    { id:'bn-home',    icon:'🏠', label:'Start',      fn:'showHome()' },
-    { id:'bn-lf',      icon:'📚', label:'Lernfelder', fn:'showLernfelder()' },
-    { id:'bn-faecher', icon:'📘', label:'Fächer',     fn:'showFaecherMob()' },
-    { id:'bn-fp',      icon:'📊', label:'Fortschritt',fn:'showFortschritt()' },
+    { id:'bn-home',     icon:'🏠', label:'Start',      fn:'showHome()' },
+    { id:'bn-lf',       icon:'📚', label:'Lernfelder', fn:'showLernfelder()' },
+    { id:'bn-pruefung', icon:'📝', label:'Prüfungen',  fn:'showPruefungen()' },
+    { id:'bn-faecher',  icon:'📘', label:'Fächer',     fn:'showFaecherMob()' },
+    { id:'bn-fp',       icon:'📊', label:'Fortschritt',fn:'showFortschritt()' },
     ...(isMod   ? [{ id:'bn-mod',   icon:'✏️', label:'Verwalten', fn:'showModMenu()' }] : []),
     ...(isAdmin && !isMod ? [{ id:'bn-admin', icon:'⚙️', label:'Admin', fn:'showAdmin()' }] : []),
   ];
@@ -87,7 +91,16 @@ function showModMenu() {
       <div class="mob-menu-icon">⚡</div>
       <div class="mob-menu-info">
         <div class="mob-menu-title">Quiz & Vokabeln importieren</div>
-        <div class="mob-menu-sub">JSON oder CSV direkt einfügen</div>
+        <div class="mob-menu-sub">JSON, CSV oder aus Dokument generieren</div>
+      </div>
+      <div class="mob-lf-arrow">›</div>
+    </div>
+
+    <div class="mob-menu-card" onclick="showArbeitErstellen()">
+      <div class="mob-menu-icon">➕</div>
+      <div class="mob-menu-info">
+        <div class="mob-menu-title">Arbeit / Prüfung erstellen</div>
+        <div class="mob-menu-sub">Neue Prüfung konfigurieren</div>
       </div>
       <div class="mob-lf-arrow">›</div>
     </div>
