@@ -1,27 +1,92 @@
 // ── VOKABEL TRAINER ───────────────────────────────────────────
-async function startVokabelTrainer(kapitelId, fachId, richtung) {
+async function startVokabelTrainer(kapitelId, fachId, richtung, forceNew, resume) {
   showSpinner();
-  const { data: vokabeln }    = await db.from('vokabeln').select('*').eq('kapitel_id', kapitelId).order('reihenfolge');
-  const { data: fortschritt } = await db.from('vokabel_fortschritt').select('*').eq('user_id', USER.id);
+
+  const [{ data: vokabeln }, { data: fortschritt }, { data: session }] = await Promise.all([
+    db.from('vokabeln').select('*').eq('kapitel_id', kapitelId).order('reihenfolge'),
+    db.from('vokabel_fortschritt').select('*').eq('user_id', USER.id),
+    db.from('vokabel_session').select('*')
+      .eq('user_id', USER.id).eq('kapitel_id', kapitelId).eq('richtung', richtung)
+      .maybeSingle()
+  ]);
+
   if (!vokabeln || !vokabeln.length) return;
 
   const fpMap = {};
   (fortschritt||[]).forEach(f => { fpMap[f.vokabel_id] = f; });
 
-  const shuffled = [...vokabeln].sort(() => Math.random() - 0.5);
-  let current = 0, richtig = 0, falsch = 0, revealed = false;
+  // Offene Session gefunden → Weitermachen anbieten
+  if (session && session.current_index > 0 && !forceNew && !resume) {
+    const isMob = window.innerWidth <= 700;
+    const resumeHTML =
+      '<div style="max-width:480px">' +
+        '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:28px;text-align:center">' +
+          '<div style="font-size:2.5rem;margin-bottom:12px">&#9654;&#65039;</div>' +
+          '<h2 style="margin-bottom:8px">Session fortsetzen?</h2>' +
+          '<p style="color:var(--muted2);font-size:0.88rem;margin-bottom:20px">Du hast zuletzt bei Vokabel <strong>' + session.current_index + ' von ' + vokabeln.length + '</strong> aufgehört.</p>' +
+          '<div style="display:flex;gap:10px;flex-direction:column">' +
+            '<button class="btn btn-primary" style="padding:13px" onclick="startVokabelTrainer(' + kapitelId + ',' + fachId + ',\'' + richtung + '\',false,true)">&#9654; Weitermachen</button>' +
+            '<button class="btn btn-secondary" style="padding:13px" onclick="startVokabelTrainer(' + kapitelId + ',' + fachId + ',\'' + richtung + '\',true)">&#128260; Neu starten</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    const backD = '<button class="btn btn-secondary btn-sm" onclick="showKapitel(' + kapitelId + ',' + fachId + ')" style="margin-bottom:20px">&larr; Zur&uuml;ck</button>';
+    const backM = '<button class="mob-back" onclick="showKapitel(' + kapitelId + ',' + fachId + ')">&larr; Zur&uuml;ck</button>';
+    if (isMob) { setMobile(backM + resumeHTML); setDesktop(''); }
+    else       { setDesktop(backD + resumeHTML); setMobile(''); }
+    return;
+  }
+
+  // Session wiederherstellen oder neu starten
+  let shuffled, current, richtig, falsch;
+  
+
+  if (resume && session) {
+    shuffled = session.reihenfolge.map(id => vokabeln.find(v => v.id === id)).filter(Boolean);
+    current  = session.current_index;
+    richtig  = session.richtig;
+    falsch   = session.falsch;
+  } else {
+    shuffled = [...vokabeln].sort(() => Math.random() - 0.5);
+    current  = 0;
+    richtig  = 0;
+    falsch   = 0;
+    // Neue Session anlegen
+    await db.from('vokabel_session').upsert({
+      user_id: USER.id, kapitel_id: kapitelId, richtung,
+      current_index: 0, richtig: 0, falsch: 0,
+      reihenfolge: shuffled.map(v => v.id),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,kapitel_id,richtung' });
+  }
+
+  let revealed = false;
 
   const dirLabel = richtung === 'en-de'
     ? { title: '&#127468;&#127463; Englisch &rarr; Deutsch', from: '&#127468;&#127463; ENGLISCH', to: '&#127465;&#127466; Auf Deutsch' }
     : { title: '&#127465;&#127466; Deutsch &rarr; Englisch', from: '&#127465;&#127466; DEUTSCH',  to: '&#127468;&#127463; In English' };
 
-  // Findet Element im aktiven Container (Mobile oder Desktop)
   function getEl(id) {
     const isMob = window.innerWidth <= 700;
-    const container = isMob
-      ? document.getElementById('mob-main')
-      : document.getElementById('main');
+    const container = isMob ? document.getElementById('mob-main') : document.getElementById('main');
     return container ? container.querySelector('#' + id) : document.getElementById(id);
+  }
+
+  async function saveSession() {
+    await db.from('vokabel_session').upsert({
+      user_id: USER.id, kapitel_id: kapitelId, richtung,
+      current_index: current, richtig, falsch,
+      reihenfolge: shuffled.map(v => v.id),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,kapitel_id,richtung' });
+  }
+
+  async function clearSession() {
+    await db.from('vokabel_session')
+      .delete()
+      .eq('user_id', USER.id)
+      .eq('kapitel_id', kapitelId)
+      .eq('richtung', richtung);
   }
 
   const styles = '<style>' +
@@ -136,8 +201,8 @@ async function startVokabelTrainer(kapitelId, fachId, richtung) {
           '</div>' +
         '</div>' +
         '<div class="vt-result-btns">' +
-          '<button class="btn btn-primary" style="padding:13px" onclick="startVokabelTrainer(' + kapitelId + ',' + fachId + ',\'' + richtung + '\')">&#128260; Nochmal trainieren</button>' +
-          '<button class="btn btn-secondary" style="padding:13px" onclick="startVokabelTrainer(' + kapitelId + ',' + fachId + ',\'' + gegRichtung + '\')">&#8644; Richtung wechseln</button>' +
+          '<button class="btn btn-primary" style="padding:13px" onclick="startVokabelTrainer(' + kapitelId + ',' + fachId + ',\'' + richtung + '\',true)">&#128260; Nochmal trainieren</button>' +
+          '<button class="btn btn-secondary" style="padding:13px" onclick="startVokabelTrainer(' + kapitelId + ',' + fachId + ',\'' + gegRichtung + '\',true)">&#8644; Richtung wechseln</button>' +
           '<button class="btn btn-secondary" style="padding:13px" onclick="showKapitel(' + kapitelId + ',' + fachId + ')">&#8592; Zur&uuml;ck zum Kapitel</button>' +
         '</div>' +
       '</div></div>';
@@ -150,13 +215,8 @@ async function startVokabelTrainer(kapitelId, fachId, richtung) {
     const titleD = '<h1 style="margin-bottom:20px">' + dirLabel.title + '</h1>';
     const titleM = '<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">' + dirLabel.title + '</div>';
 
-    if (isMob) {
-      setMobile(backM + titleM + cardHTML());
-      setDesktop('');
-    } else {
-      setDesktop(backD + titleD + cardHTML());
-      setMobile('');
-    }
+    if (isMob) { setMobile(backM + titleM + cardHTML()); setDesktop(''); }
+    else       { setDesktop(backD + titleD + cardHTML()); setMobile(''); }
 
     setTimeout(function() {
       const inp = getEl('vt-input');
@@ -170,11 +230,11 @@ async function startVokabelTrainer(kapitelId, fachId, richtung) {
   }
 
   window.vtCheck = function() {
-    const v       = shuffled[current];
-    const inp     = getEl('vt-input');
-    const card    = getEl('vt-card');
-    const checkBtn= getEl('vt-check');
-    const nextBtn = getEl('vt-next');
+    const v        = shuffled[current];
+    const inp      = getEl('vt-input');
+    const card     = getEl('vt-card');
+    const checkBtn = getEl('vt-check');
+    const nextBtn  = getEl('vt-next');
 
     const answer  = (inp ? inp.value : '').trim().toLowerCase();
     const correct = (richtung === 'en-de' ? v.de : v.en).toLowerCase();
@@ -198,8 +258,7 @@ async function startVokabelTrainer(kapitelId, fachId, richtung) {
         card.innerHTML =
           '<div style="font-size:2rem">&#9989;</div>' +
           '<div class="vt-verdict correct">Richtig!</div>' +
-          '<div class="vt-answer-word">' + correctWord + '</div>' +
-          beispiel;
+          '<div class="vt-answer-word">' + correctWord + '</div>' + beispiel;
       }
       fpMap[v.id] = Object.assign({}, fp, { richtig_count: fp.richtig_count + 1 });
       db.from('vokabel_fortschritt').upsert({ user_id: USER.id, vokabel_id: v.id, richtig_count: fp.richtig_count + 1, falsch_count: fp.falsch_count, zuletzt_gelernt: new Date().toISOString() }, { onConflict: 'user_id,vokabel_id' });
@@ -211,8 +270,7 @@ async function startVokabelTrainer(kapitelId, fachId, richtung) {
         card.innerHTML =
           '<div style="font-size:2rem">&#10060;</div>' +
           '<div class="vt-verdict wrong">Falsch &mdash; Richtige Antwort:</div>' +
-          '<div class="vt-answer-word">' + correctWord + '</div>' +
-          beispiel;
+          '<div class="vt-answer-word">' + correctWord + '</div>' + beispiel;
       }
       fpMap[v.id] = Object.assign({}, fp, { falsch_count: fp.falsch_count + 1 });
       db.from('vokabel_fortschritt').upsert({ user_id: USER.id, vokabel_id: v.id, richtig_count: fp.richtig_count, falsch_count: fp.falsch_count + 1, zuletzt_gelernt: new Date().toISOString() }, { onConflict: 'user_id,vokabel_id' });
@@ -225,7 +283,13 @@ async function startVokabelTrainer(kapitelId, fachId, richtung) {
   window.vtNext = function() {
     current++;
     revealed = false;
+
+    // Session nach jeder Vokabel speichern
+    saveSession();
+
     if (current >= shuffled.length) {
+      // Session löschen wenn fertig
+      clearSession();
       const isMob = window.innerWidth <= 700;
       const backD = '<button class="btn btn-secondary btn-sm" onclick="showKapitel(' + kapitelId + ',' + fachId + ')" style="margin-bottom:20px">&larr; Zur&uuml;ck</button>';
       const backM = '<button class="mob-back" onclick="showKapitel(' + kapitelId + ',' + fachId + ')">&larr; Zur&uuml;ck</button>';
