@@ -6,82 +6,290 @@
 <title>Anmelden – Lernplattform Logistik</title>
 <link rel="stylesheet" href="css/style.css">
 <style>
-  body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
-  
-  /* ANTI-FLACKER-LOGIK: Initial versteckt */
-  .wrap { 
-    width:100%; 
-    max-width:400px; 
-    display: none; 
-    opacity: 0;
+  body {
+    display: flex;
+    min-height: 100vh;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* ── LOADER ── */
+  #page-loader {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999;
     transition: opacity 0.3s ease;
   }
-  
-  .logo { text-align:center; margin-bottom:28px; }
-  .logo h1 { font-size:1.6rem; margin-bottom:4px; }
-  .logo p { color:var(--muted2); font-size:0.88rem; }
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px; }
-  .tabs { display:flex; gap:4px; background:var(--surface2); border-radius:10px; padding:3px; margin-bottom:22px; }
-  .tab { flex:1; padding:8px; text-align:center; border-radius:8px; cursor:pointer; font-size:0.87rem; font-weight:600; color:var(--muted2); border:none; background:none; font-family:inherit; transition:all 0.2s; }
-  .tab.active { background:var(--surface); color:var(--text); }
-  .section { display:none; }
-  .section.active { display:block; }
-  .bg1 { position:fixed; width:350px; height:350px; background:#3b7ff510; border-radius:50%; filter:blur(80px); top:-100px; right:-100px; pointer-events:none; z-index:-1; }
-  .bg2 { position:fixed; width:280px; height:280px; background:#7c4dff10; border-radius:50%; filter:blur(80px); bottom:-60px; left:-60px; pointer-events:none; z-index:-1; }
-  
-  /* Lade-Spinner für den ersten Moment */
-  #page-loader {
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+
+  /* ── LEFT PANEL ── */
+  .login-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .login-left::before {
+    content: '';
+    position: absolute;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, #3b7ff520, transparent 70%);
+    top: -100px; left: -100px;
+    border-radius: 50%;
+    animation: pulse 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .login-left::after {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, #7c4dff18, transparent 70%);
+    bottom: -100px; right: 0;
+    border-radius: 50%;
+    animation: pulse 8s ease-in-out infinite reverse;
+    pointer-events: none;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+
+  .left-content { position: relative; z-index: 1; max-width: 480px; }
+
+  .left-brand {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 48px;
+  }
+  .left-brand-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    box-shadow: 0 4px 20px #3b7ff540;
+  }
+  .left-brand-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem; font-weight: 800;
+    color: var(--muted2);
+  }
+
+  .left-headline {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.6rem; font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 18px;
+  }
+  .left-sub {
+    font-size: 1rem; color: var(--muted2);
+    line-height: 1.7; margin-bottom: 48px;
+    max-width: 380px;
+  }
+
+  .feature-list { display: flex; flex-direction: column; gap: 12px; }
+  .feature-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    transition: border-color 0.2s;
+  }
+  .feature-item:hover { border-color: var(--border2); }
+  .feature-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .feature-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 1px; }
+  .feature-desc { font-size: 0.78rem; color: var(--muted2); }
+
+  .left-footer {
+    margin-top: 40px;
+    font-size: 0.78rem; color: var(--muted);
+  }
+  .left-footer span { color: var(--muted2); }
+
+  /* ── RIGHT PANEL ── */
+  .login-right {
+    width: 460px;
+    min-width: 460px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 48px 44px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    position: relative;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .login-right.visible { opacity: 1; }
+
+  .right-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 6px; }
+  .right-sub { font-size: 0.875rem; color: var(--muted2); margin-bottom: 28px; }
+
+  .class-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    background: var(--accent-glow2);
+    border: 1px solid #3b7ff335;
+    border-radius: 99px;
+    font-size: 0.78rem; font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 24px;
+    letter-spacing: 0.3px;
+    width: fit-content;
+  }
+
+  .tabs {
+    display: flex; gap: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px;
+    margin-bottom: 24px;
+  }
+  .tab {
+    flex: 1; padding: 9px; text-align: center;
+    border-radius: 9px; cursor: pointer;
+    font-size: 0.875rem; font-weight: 600;
+    color: var(--muted2); border: 1px solid transparent;
+    background: none; font-family: inherit;
+    transition: all 0.18s;
+  }
+  .tab.active {
+    background: var(--surface3);
+    color: var(--text);
+    border-color: var(--border2);
+  }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .or-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 18px 0; color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .or-divider::before, .or-divider::after {
+    content: ''; flex: 1;
+    height: 1px; background: var(--border);
+  }
+
+  /* ── MOBILE ── */
+  @media (max-width: 800px) {
+    body { overflow: auto; }
+    .login-left { display: none; }
+    .login-right {
+      width: 100%; min-width: unset;
+      border-left: none;
+      padding: 40px 24px;
+      min-height: 100vh;
+    }
   }
 </style>
 </head>
 <body>
-<div class="bg1"></div>
-<div class="bg2"></div>
 
 <div id="page-loader"><div class="spinner"></div></div>
 
-<div class="wrap" id="login-wrap">
-  <div class="logo">
-    <h1 class="gradient-text">🚛 Lernplattform Logistik</h1>
-    <p>Deine Plattform für die Ausbildung</p>
+<!-- LEFT PANEL -->
+<div class="login-left">
+  <div class="left-content">
+    <h1 class="left-headline">
+      Lerne smarter,<br>
+      <span class="gradient-text">nicht härter.</span>
+    </h1>
+    <p class="left-sub">
+      Die digitale Lernplattform für die Klasse LOG25a — strukturierte Inhalte, KI-gestützte Quizze und persönlicher Fortschritt auf einen Blick.
+    </p>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="feature-icon">📚</div>
+        <div>
+          <div class="feature-title">Lernfelder & Fächer</div>
+          <div class="feature-desc">Strukturierte Inhalte nach LF 1–12 + Englisch, Komm. & WiPo</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🤖</div>
+        <div>
+          <div class="feature-title">KI-gestützte Quizze</div>
+          <div class="feature-desc">Intelligente Bewertung mit Keyword-Erkennung</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📊</div>
+        <div>
+          <div class="feature-title">Persönlicher Fortschritt</div>
+          <div class="feature-desc">Verfolge deinen Lernstand und bereite dich gezielt vor</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="left-footer">
+      Made with ❤️ by <span>Coregenetic</span> · Klasse LOG25a
+    </div>
   </div>
-  <div class="card">
-    <div class="tabs">
-      <button class="tab active" id="tab-login" onclick="switchTab('login')">Anmelden</button>
-      <button class="tab" id="tab-reg" onclick="switchTab('register')">Registrieren</button>
-    </div>
-    <div id="alert"></div>
+</div>
 
-    <div class="section active" id="sec-login">
-      <div class="form-group">
-        <label class="form-label">Vorname</label>
-        <input class="form-input" type="text" id="login-name" placeholder="Dein Vorname">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Passwort</label>
-        <input class="form-input" type="password" id="login-pw" placeholder="••••••••">
-      </div>
-      <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()">Anmelden</button>
-    </div>
+<!-- RIGHT PANEL -->
+<div class="login-right" id="login-wrap">
+  <div class="class-badge">🎓 LOG25a · Ausbildungsjahrgang 2025</div>
+  <div class="right-title" id="right-title">Willkommen zurück</div>
+  <p class="right-sub" id="right-sub">Melde dich mit deinem Vornamen an</p>
 
-    <div class="section" id="sec-reg">
-      <div class="form-group">
-        <label class="form-label">Vorname</label>
-        <input class="form-input" type="text" id="reg-name" placeholder="z.B. Max">
-      </div>
-      <div class="form-group">
-        <label class="form-label">E-Mail</label>
-        <input class="form-input" type="email" id="reg-email" placeholder="dein@email.de">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Passwort (mind. 6 Zeichen)</label>
-        <input class="form-input" type="password" id="reg-pw" placeholder="••••••••">
-      </div>
-      <button class="btn btn-primary btn-full" id="btn-reg" onclick="doRegister()">Konto erstellen</button>
+  <div class="tabs">
+    <button class="tab active" id="tab-login" onclick="switchTab('login')">Anmelden</button>
+    <button class="tab" id="tab-reg" onclick="switchTab('register')">Registrieren</button>
+  </div>
+
+  <div id="alert"></div>
+
+  <!-- LOGIN -->
+  <div class="section active" id="sec-login">
+    <div class="form-group">
+      <label class="form-label">Vorname</label>
+      <input class="form-input" type="text" id="login-name" placeholder="Dein Vorname" autocomplete="username">
     </div>
+    <div class="form-group">
+      <label class="form-label">Passwort</label>
+      <input class="form-input" type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()" style="margin-top:4px;padding:13px;">
+      Anmelden →
+    </button>
+    <div class="or-divider">Noch kein Konto?</div>
+    <button class="btn btn-secondary btn-full" onclick="switchTab('register')" style="padding:11px;">
+      Jetzt registrieren
+    </button>
+  </div>
+
+  <!-- REGISTER -->
+  <div class="section" id="sec-reg">
+    <div class="form-group">
+      <label class="form-label">Vorname</label>
+      <input class="form-input" type="text" id="reg-name" placeholder="z.B. Max" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">E-Mail</label>
+      <input class="form-input" type="email" id="reg-email" placeholder="deine@email.de" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Passwort <span style="color:var(--muted);font-weight:400">(mind. 6 Zeichen)</span></label>
+      <input class="form-input" type="password" id="reg-pw" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <button class="btn btn-primary btn-full" id="btn-reg" onclick="doRegister()" style="margin-top:4px;padding:13px;">
+      Konto erstellen →
+    </button>
+    <div class="or-divider">Bereits registriert?</div>
+    <button class="btn btn-secondary btn-full" onclick="switchTab('login')" style="padding:11px;">
+      Jetzt anmelden
+    </button>
   </div>
 </div>
 
@@ -90,16 +298,12 @@
 <script>
   // db kommt aus config.js
 
-  // Check Session
   db.auth.getSession().then(({ data: { session } }) => {
     if (session) {
       window.location.href = 'dashboard.html';
     } else {
-      // Wenn nicht eingeloggt: Loader weg, Formular sanft einblenden
       document.getElementById('page-loader').style.display = 'none';
-      const wrap = document.getElementById('login-wrap');
-      wrap.style.display = 'block';
-      setTimeout(() => wrap.style.opacity = '1', 50);
+      document.getElementById('login-wrap').classList.add('visible');
     }
   });
 
@@ -109,6 +313,8 @@
     document.getElementById('sec-login').classList.toggle('active', tab === 'login');
     document.getElementById('sec-reg').classList.toggle('active', tab === 'register');
     document.getElementById('alert').innerHTML = '';
+    document.getElementById('right-title').textContent = tab === 'login' ? 'Willkommen zurück' : 'Konto erstellen';
+    document.getElementById('right-sub').textContent = tab === 'login' ? 'Melde dich mit deinem Vornamen an' : 'Tritt der LOG25a bei';
   }
 
   function showAlert(msg, type = 'error') {
@@ -129,12 +335,12 @@
 
     const { data: profile } = await db.from('profiles').select('email').eq('username', name).maybeSingle();
     if (!profile?.email) {
-      setBtn('btn-login', false, 'Anmelden');
+      setBtn('btn-login', false, 'Anmelden →');
       return showAlert('Vorname nicht gefunden. Bitte registrieren.');
     }
 
     const { error } = await db.auth.signInWithPassword({ email: profile.email, password: pw });
-    setBtn('btn-login', false, 'Anmelden');
+    setBtn('btn-login', false, 'Anmelden →');
     if (error) return showAlert('Falscher Vorname oder falsches Passwort.');
     window.location.href = 'dashboard.html';
   }
@@ -149,7 +355,7 @@
 
     const { data: existing } = await db.from('profiles').select('id').eq('username', name.toLowerCase()).maybeSingle();
     if (existing) {
-      setBtn('btn-reg', false, 'Konto erstellen');
+      setBtn('btn-reg', false, 'Konto erstellen →');
       return showAlert('Dieser Vorname ist bereits vergeben.');
     }
 
@@ -157,9 +363,9 @@
       email, password: pw,
       options: { data: { username: name.toLowerCase(), full_name: name, email } }
     });
-    setBtn('btn-reg', false, 'Konto erstellen');
+    setBtn('btn-reg', false, 'Konto erstellen →');
     if (error) return showAlert(error.message);
-    showAlert('Konto erstellt! Du kannst dich jetzt anmelden.', 'success');
+    showAlert('🎉 Konto erstellt! Du kannst dich jetzt anmelden.', 'success');
     setTimeout(() => switchTab('login'), 2000);
   }
 
