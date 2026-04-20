@@ -88,12 +88,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
 <script>
-  const { createClient } = supabase;
-  
-  // Nutzt sessionStorage für automatischen Logout beim Schließen des Browsers
-  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { storage: window.sessionStorage }
-  });
+  // db kommt aus config.js
 
   // Check Session
   db.auth.getSession().then(({ data: { session } }) => {
