@@ -1,4 +1,21 @@
-// ── LERNFELDER ───────────────────────────────────────────────
+// ── LERNFELDER CACHE ──────────────────────────────────────────
+const _lfCache = {};
+async function lfCached(key, fn) {
+  if (_lfCache[key] !== undefined) return _lfCache[key];
+  _lfCache[key] = await fn();
+  return _lfCache[key];
+}
+function lfInvalidate(key) { if (key) delete _lfCache[key]; else Object.keys(_lfCache).forEach(k => delete _lfCache[k]); }
+
+// Fortschritt global cachen (wird oft gebraucht)
+async function getFortschritt() {
+  return lfCached('fortschritt_' + USER.id, async () => {
+    const { data } = await db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true);
+    return (data||[]).map(f => f.inhalt_id);
+  });
+}
+function invalidateFortschritt() { lfInvalidate('fortschritt_' + USER.id); }
+
 
 function lfCard(lf, isMod) {
   const locked = !lf.freigeschaltet && !isMod;
@@ -60,12 +77,13 @@ async function showLernfeldDetail(lfId) {
   const { data: lf } = await db.from('lernfelder').select('*, lernbereiche(name)').eq('id', lfId).maybeSingle();
   if (!lf || (!lf.freigeschaltet && !isMod)) return showLernfelder();
 
-  const [{ data: stunden }, { data: inhalteOhneStunde }, { data: fp }] = await Promise.all([
-    db.from('unterrichtsstunden').select('*').eq('lernfeld_id', lfId).order('datum'),
-    db.from('inhalte').select('id, titel, typ, reihenfolge, stunde_id').eq('lernfeld_id', lfId).is('stunde_id', null).order('reihenfolge'),
-    db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
+  const [[{ data: stunden }, { data: inhalteOhneStunde }], doneIds] = await Promise.all([
+    Promise.all([
+      db.from('unterrichtsstunden').select('*').eq('lernfeld_id', lfId).order('datum'),
+      db.from('inhalte').select('id, titel, typ, reihenfolge, stunde_id').eq('lernfeld_id', lfId).is('stunde_id', null).order('reihenfolge')
+    ]),
+    getFortschritt()
   ]);
-  const doneIds = (fp||[]).map(f => f.inhalt_id);
 
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥' };
 
@@ -176,12 +194,13 @@ async function showStundeDetail(stundeId, lfId) {
   showSpinner();
   const isMod = ['admin','mod'].includes(PROFILE.role);
 
-  const [{ data: stunde }, { data: inhalte }, { data: fp }] = await Promise.all([
-    db.from('unterrichtsstunden').select('*').eq('id', stundeId).maybeSingle(),
-    db.from('inhalte').select('id, titel, typ, reihenfolge').eq('stunde_id', stundeId).order('reihenfolge'),
-    db.from('fortschritt').select('inhalt_id').eq('user_id', USER.id).eq('abgeschlossen', true)
+  const [[{ data: stunde }, { data: inhalte }], doneIds] = await Promise.all([
+    Promise.all([
+      db.from('unterrichtsstunden').select('*').eq('id', stundeId).maybeSingle(),
+      db.from('inhalte').select('id, titel, typ, reihenfolge').eq('stunde_id', stundeId).order('reihenfolge')
+    ]),
+    getFortschritt()
   ]);
-  const doneIds = (fp||[]).map(f => f.inhalt_id);
   const typeIcon = { text:'📄', quiz:'❓', lernkarten:'🃏', video:'🎥' };
 
   function formatDatum(d) {
@@ -377,6 +396,7 @@ async function showInhalt(inhaltId, lfId, stundeId = null) {
 }
 
 async function markDone(inhaltId, lfId, navigate = true, stundeId = null) {
+  invalidateFortschritt();
   await db.from('fortschritt').upsert(
     { user_id: USER.id, inhalt_id: inhaltId, abgeschlossen: true, completed_at: new Date().toISOString() },
     { onConflict: 'user_id,inhalt_id' }
