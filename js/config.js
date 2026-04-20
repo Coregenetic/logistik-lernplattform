@@ -1,6 +1,6 @@
 // DEV = true  → Test-Datenbank
 // DEV = false → Produktiv-Datenbank
-const DEV = true;
+const DEV = false;
 
 const SUPABASE_URL = DEV
   ? 'https://dgegpbiaxrcievgfmguf.supabase.co'
