@@ -369,9 +369,14 @@ async function showErgebnisDetail(ergebnisId) {
 }
 
 function showStatistik({ arbeit, ergebnisse, richtig, teilweise, falsch, scoreProzent, missingMap, ergebnisId }) {
-  const gesamt  = ergebnisse.length;
-  const emoji   = scoreProzent >= 80 ? '🎉' : scoreProzent >= 60 ? '👍' : scoreProzent >= 40 ? '📚' : '💪';
-  const note    = scoreProzent >= 87 ? '1' : scoreProzent >= 75 ? '2' : scoreProzent >= 62 ? '3' : scoreProzent >= 50 ? '4' : scoreProzent >= 37 ? '5' : '6';
+  const gesamt = ergebnisse.length;
+  const emoji  = scoreProzent >= 80 ? '🎉' : scoreProzent >= 60 ? '👍' : scoreProzent >= 40 ? '📚' : '💪';
+  const note   = scoreProzent >= 87 ? '1' : scoreProzent >= 75 ? '2' : scoreProzent >= 62 ? '3' : scoreProzent >= 50 ? '4' : scoreProzent >= 37 ? '5' : '6';
+
+  const noteColor = note <= '2' ? 'var(--correct)' : note <= '3' ? '#22d3ee' : note <= '4' ? 'var(--warning)' : 'var(--danger)';
+  const scoreColor = scoreProzent >= 80 ? 'var(--correct)' : scoreProzent >= 60 ? '#22d3ee' : scoreProzent >= 40 ? 'var(--warning)' : 'var(--danger)';
+  const scoreBg = scoreProzent >= 80 ? '#10b98115' : scoreProzent >= 60 ? '#22d3ee15' : scoreProzent >= 40 ? '#f59e0b15' : '#ef444415';
+  const scoreBorder = scoreProzent >= 80 ? '#10b98130' : scoreProzent >= 60 ? '#22d3ee30' : scoreProzent >= 40 ? '#f59e0b30' : '#ef444430';
 
   // Themen-Auswertung
   const themenMap = {};
@@ -383,92 +388,148 @@ function showStatistik({ arbeit, ergebnisse, richtig, teilweise, falsch, scorePr
   });
 
   const themenHTML = Object.entries(themenMap).map(([thema, t]) => {
-    const tPct = Math.round(((t.richtig + t.teilweise * 0.5) / t.gesamt) * 100);
+    const tPct  = Math.round(((t.richtig + t.teilweise * 0.5) / t.gesamt) * 100);
     const color = tPct >= 80 ? 'var(--correct)' : tPct >= 50 ? 'var(--warning)' : 'var(--danger)';
+    const bg    = tPct >= 80 ? '#10b98112' : tPct >= 50 ? '#f59e0b12' : '#ef444412';
     return `
-      <div style="padding:10px 0;border-top:1px solid var(--border)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <div style="font-weight:600;font-size:0.88rem">${thema}</div>
-          <div style="font-weight:700;color:${color}">${tPct}%</div>
+      <div style="padding:14px;background:${bg};border:1px solid var(--border);border-radius:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-weight:600;font-size:0.875rem">${thema}</div>
+          <div style="font-weight:800;font-size:1rem;color:${color}">${tPct}%</div>
         </div>
-        <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden">
-          <div style="height:100%;width:${tPct}%;background:${color};border-radius:99px"></div>
+        <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:6px">
+          <div style="height:100%;width:${tPct}%;background:${color};border-radius:99px;transition:width 0.6s ease"></div>
         </div>
-        <div style="font-size:0.75rem;color:var(--muted2);margin-top:3px">
-          ✅ ${t.richtig} · ⚡ ${t.teilweise} · ❌ ${t.falsch} von ${t.gesamt} Fragen
+        <div style="display:flex;gap:12px;font-size:0.75rem;color:var(--muted2)">
+          <span style="color:var(--correct)">✅ ${t.richtig} richtig</span>
+          <span style="color:var(--warning)">⚡ ${t.teilweise} teilweise</span>
+          <span style="color:var(--danger)">❌ ${t.falsch} falsch</span>
         </div>
       </div>`;
   }).join('');
 
   // Fehlende Keywords
-  const topMissing = Object.entries(missingMap)
-    .sort((a,b) => b[1]-a[1]).slice(0,10);
-  const missingHTML = topMissing.length ? topMissing.map(([kw, count]) => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border)">
-      <div style="font-size:0.88rem">${kw}</div>
-      <div style="font-size:0.78rem;color:var(--danger);font-weight:600">${count}× vergessen</div>
-    </div>`).join('')
-    : '<div style="color:var(--muted2);font-size:0.85rem">Keine fehlenden Keywords – top! 🎉</div>';
+  const topMissing = Object.entries(missingMap).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const missingHTML = topMissing.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${topMissing.map(([kw, count]) => `
+          <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#ef444415;border:1px solid #ef444430;border-radius:99px">
+            <span style="font-size:0.82rem;font-weight:600">${kw}</span>
+            <span style="font-size:0.72rem;color:var(--danger);font-weight:700">${count}×</span>
+          </div>`).join('')}
+       </div>`
+    : `<div style="display:flex;align-items:center;gap:8px;color:var(--correct);font-size:0.88rem;font-weight:600">
+         <span>🎉</span><span>Keine fehlenden Keywords – top!</span>
+       </div>`;
 
   // Empfehlungen
   const schwachThemen = Object.entries(themenMap)
-    .filter(([,t]) => ((t.richtig + t.teilweise*0.5)/t.gesamt) < 0.6)
+    .filter(([,t]) => ((t.richtig + t.teilweise * 0.5) / t.gesamt) < 0.6)
     .map(([thema]) => thema);
+
   const empfehlung = schwachThemen.length
-    ? `<div class="alert" style="background:#ef444415;border:1px solid #ef444444;border-radius:12px;padding:14px;margin-bottom:20px">
-        <div style="font-weight:700;margin-bottom:6px">💡 Diese Themen nochmal wiederholen:</div>
-        ${schwachThemen.map(t => `<div style="font-size:0.85rem;color:var(--danger);margin-top:4px">• ${t}</div>`).join('')}
+    ? `<div style="background:#ef444412;border:1px solid #ef444430;border-radius:14px;padding:16px;margin-bottom:20px">
+        <div style="font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <span>💡</span><span>Diese Themen nochmal wiederholen</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${schwachThemen.map(t => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem">
+              <span style="color:var(--danger)">•</span>
+              <span>${t}</span>
+            </div>`).join('')}
+        </div>
        </div>`
-    : `<div class="alert" style="background:#10b98115;border:1px solid #10b98144;border-radius:12px;padding:14px;margin-bottom:20px">
-        <div style="font-weight:700">✅ Alle Themen gut beherrscht – weiter so!</div>
+    : `<div style="background:#10b98112;border:1px solid #10b98130;border-radius:14px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:1.3rem">✅</span>
+        <div>
+          <div style="font-weight:700">Alle Themen gut beherrscht!</div>
+          <div style="font-size:0.82rem;color:var(--muted2);margin-top:2px">Weiter so – du bist bestens vorbereitet.</div>
+        </div>
        </div>`;
 
-  // Einzelfragen-Auswertung
+  // Einzelfragen
   const fragenHTML = ergebnisse.map((e, i) => {
     const colors = { richtig:'var(--correct)', teilweise:'var(--warning)', falsch:'var(--danger)' };
+    const bgs    = { richtig:'#10b98110', teilweise:'#f59e0b10', falsch:'#ef444410' };
     const icons  = { richtig:'✅', teilweise:'⚡', falsch:'❌' };
+    const labels = { richtig:'Richtig', teilweise:'Teilweise', falsch:'Falsch' };
     return `
-      <div style="padding:14px;background:var(--surface2);border-radius:12px;margin-bottom:10px;border-left:4px solid ${colors[e.verdict]}">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span>${icons[e.verdict]}</span>
-          <span style="font-weight:600;font-size:0.88rem">${i+1}. ${e.frage}</span>
+      <div style="padding:16px;background:${bgs[e.verdict]};border:1px solid var(--border);border-radius:14px;margin-bottom:10px;border-left:3px solid ${colors[e.verdict]}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
+          <div style="font-weight:600;font-size:0.9rem;flex:1;line-height:1.5">${i+1}. ${e.frage}</div>
+          <span style="padding:3px 10px;background:${bgs[e.verdict]};border:1px solid ${colors[e.verdict]}40;border-radius:99px;font-size:0.72rem;font-weight:700;color:${colors[e.verdict]};white-space:nowrap;flex-shrink:0">
+            ${icons[e.verdict]} ${labels[e.verdict]}
+          </span>
         </div>
-        ${e.antwort ? `<div style="font-size:0.8rem;color:var(--muted2);margin-bottom:4px"><strong style="color:var(--text)">Deine Antwort:</strong> ${e.antwort}</div>` : ''}
-        <div style="font-size:0.8rem;color:var(--muted2);margin-bottom:4px"><strong style="color:var(--text)">Musterantwort:</strong> ${e.muster}</div>
-        ${e.missing?.length ? `<div style="font-size:0.75rem;color:var(--danger)">Fehlend: ${e.missing.join(', ')}</div>` : ''}
-        ${e.matched?.length ? `<div style="font-size:0.75rem;color:var(--correct)">Erkannt: ${e.matched.join(', ')}</div>` : ''}
+        ${e.antwort ? `
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:8px;font-size:0.82rem">
+            <div style="font-size:0.72rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Deine Antwort</div>
+            <div style="color:var(--text)">${e.antwort}</div>
+          </div>` : ''}
+        <div style="background:var(--surface2);border-radius:8px;padding:10px;font-size:0.82rem">
+          <div style="font-size:0.72rem;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Musterlösung</div>
+          <div style="color:var(--text)">${e.muster}</div>
+        </div>
+        ${e.missing?.length ? `
+          <div style="margin-top:8px;font-size:0.75rem;color:var(--danger)">
+            <span style="font-weight:700">Fehlende Keywords:</span> ${e.missing.join(', ')}
+          </div>` : ''}
+        ${e.matched?.length ? `
+          <div style="margin-top:4px;font-size:0.75rem;color:var(--correct)">
+            <span style="font-weight:700">Erkannte Keywords:</span> ${e.matched.join(', ')}
+          </div>` : ''}
       </div>`;
   }).join('');
 
   const html = `
-    <button class="btn btn-secondary btn-sm" onclick="showPruefungen()" style="margin-bottom:20px">← Übersicht</button>
+    <button class="btn btn-secondary btn-sm" onclick="showPruefungen()" style="margin-bottom:24px">← Übersicht</button>
 
-    <!-- GESAMTERGEBNIS -->
-    <div class="card" style="text-align:center;margin-bottom:20px;padding:28px">
-      <div style="font-size:3rem;margin-bottom:8px">${emoji}</div>
-      <div style="font-size:2.8rem;font-weight:700" class="gradient-text">${scoreProzent}%</div>
-      <div style="font-size:1.1rem;color:var(--muted2);margin-top:4px">Note: <strong style="color:var(--text)">${note}</strong></div>
-      <div style="display:flex;gap:20px;justify-content:center;margin-top:16px;font-size:0.9rem">
-        <span style="color:var(--correct)">✅ ${richtig} richtig</span>
-        <span style="color:var(--warning)">⚡ ${teilweise} teilweise</span>
-        <span style="color:var(--danger)">❌ ${falsch} falsch</span>
+    <!-- HERO ERGEBNIS -->
+    <div style="background:${scoreBg};border:1px solid ${scoreBorder};border-radius:20px;padding:32px;text-align:center;margin-bottom:20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:${scoreColor}15;border-radius:50%;filter:blur(30px);pointer-events:none"></div>
+      <div style="font-size:2.5rem;margin-bottom:12px">${emoji}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:4rem;font-weight:800;color:${scoreColor};line-height:1">${scoreProzent}%</div>
+      <div style="font-size:0.85rem;color:var(--muted2);margin-top:6px">${gesamt} Fragen beantwortet</div>
+
+      <!-- NOTE BADGE -->
+      <div style="display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:8px 20px;background:var(--surface);border:1px solid ${noteColor}40;border-radius:99px">
+        <span style="font-size:0.82rem;color:var(--muted2)">Note</span>
+        <span style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:${noteColor}">${note}</span>
       </div>
-      <div style="font-size:0.78rem;color:var(--muted2);margin-top:8px">${gesamt} Fragen insgesamt</div>
+    </div>
+
+    <!-- STAT KARTEN -->
+    <div class="grid-3" style="margin-bottom:20px">
+      <div style="background:#10b98112;border:1px solid #10b98128;border-radius:14px;padding:18px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--correct);font-family:'Syne',sans-serif">${richtig}</div>
+        <div style="font-size:0.78rem;color:var(--muted2);margin-top:4px;font-weight:600">✅ Richtig</div>
+      </div>
+      <div style="background:#f59e0b12;border:1px solid #f59e0b28;border-radius:14px;padding:18px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--warning);font-family:'Syne',sans-serif">${teilweise}</div>
+        <div style="font-size:0.78rem;color:var(--muted2);margin-top:4px;font-weight:600">⚡ Teilweise</div>
+      </div>
+      <div style="background:#ef444412;border:1px solid #ef444428;border-radius:14px;padding:18px;text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--danger);font-family:'Syne',sans-serif">${falsch}</div>
+        <div style="font-size:0.78rem;color:var(--muted2);margin-top:4px;font-weight:600">❌ Falsch</div>
+      </div>
     </div>
 
     ${empfehlung}
 
-    <!-- THEMEN-AUSWERTUNG -->
+    <!-- THEMEN -->
     <div class="card" style="margin-bottom:20px">
-      <h3 style="margin-bottom:4px">📊 Auswertung nach Thema</h3>
-      <p style="color:var(--muted2);font-size:0.82rem;margin-bottom:8px">Wie gut hast du jedes Thema beherrscht?</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <h3>📊 Auswertung nach Thema</h3>
+      </div>
+      <p style="color:var(--muted2);font-size:0.82rem;margin-bottom:14px">Wie gut hast du jedes Thema beherrscht?</p>
       ${themenHTML}
     </div>
 
-    <!-- FEHLENDE KEYWORDS -->
+    <!-- KEYWORDS -->
     <div class="card" style="margin-bottom:20px">
-      <h3 style="margin-bottom:4px">❌ Häufig vergessene Begriffe</h3>
-      <p style="color:var(--muted2);font-size:0.82rem;margin-bottom:8px">Diese Keywords haben in deinen Antworten oft gefehlt.</p>
+      <h3 style="margin-bottom:4px">🔑 Häufig vergessene Begriffe</h3>
+      <p style="color:var(--muted2);font-size:0.82rem;margin-bottom:14px">Diese Keywords fehlten in deinen Antworten am häufigsten.</p>
       ${missingHTML}
     </div>
 
@@ -478,10 +539,14 @@ function showStatistik({ arbeit, ergebnisse, richtig, teilweise, falsch, scorePr
       ${fragenHTML}
     </div>
 
-    <button class="btn btn-primary" style="width:100%;padding:14px"
-            onclick="startArbeit(${arbeit.id||0})">
-      🔄 Nochmal versuchen
-    </button>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1;padding:14px" onclick="showPruefungen()">
+        ← Übersicht
+      </button>
+      <button class="btn btn-primary" style="flex:2;padding:14px" onclick="startArbeit(${arbeit.id||0})">
+        🔄 Nochmal versuchen
+      </button>
+    </div>
   `;
 
   setDesktop(html);
