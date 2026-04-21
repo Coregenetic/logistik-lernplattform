@@ -370,6 +370,16 @@ async function showInhalt(inhaltId, lfId, stundeId = null) {
     : () => showLernfeldDetail(i.lernfelder.id);
   const backBtn = stundeId ? '← Zurück zur Stunde' : `← LF ${i.lernfelder.nummer}`;
 
+  if (i.typ === 'lernkarten') {
+    renderLernkarten(
+      i,
+      backLabel,
+      () => stundeId ? showStundeDetail(stundeId, lfId) : showLernfeldDetail(lfId),
+      () => markDone(i.id, lfId, false, stundeId)
+    );
+    return;
+  }
+
   if (i.typ === 'quiz') {
     renderQuiz(i, backBtn, backFn, async () => {
       await markDone(inhaltId, lfId, false);
@@ -447,21 +457,31 @@ const quizStyles = `<style>
   .quiz-counter{font-size:0.78rem;color:var(--muted2);margin-bottom:16px}
   .quiz-scores{display:flex;gap:14px;margin-bottom:20px;font-size:0.82rem}
   .qs-r{color:var(--correct);font-weight:600}.qs-t{color:var(--warning);font-weight:600}.qs-f{color:var(--danger);font-weight:600}
-  .quiz-frage{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px;font-size:1rem;font-weight:600;line-height:1.5}
-  .quiz-textarea{width:100%;min-height:120px;background:var(--surface);border:2px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:1rem;padding:14px;resize:none;outline:none;transition:border-color 0.2s;margin-bottom:12px;line-height:1.5;box-sizing:border-box;}
+
+  /* Quiz Card - reveal approach */
+  .quiz-card{border-radius:16px;padding:22px;margin-bottom:14px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:1rem;font-weight:600;line-height:1.5;border:1px solid var(--border);background:var(--surface);transition:background 0.3s,border-color 0.3s}
+  .quiz-card.richtig{background:#10b98112;border-color:#10b98130}
+  .quiz-card.teilweise{background:#f59e0b12;border-color:#f59e0b30}
+  .quiz-card.falsch{background:#ef444412;border-color:#ef444430}
+  .quiz-card-reveal{animation:qReveal 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+  @keyframes qReveal{from{transform:scale(0.96);opacity:0.6}to{transform:scale(1);opacity:1}}
+  .quiz-flip-verdict{font-size:0.88rem;font-weight:700;padding:3px 12px;border-radius:99px}
+  .richtig .quiz-flip-verdict{background:#10b98125;color:var(--correct)}
+  .teilweise .quiz-flip-verdict{background:#f59e0b25;color:var(--warning)}
+  .falsch .quiz-flip-verdict{background:#ef444425;color:var(--danger)}
+  .quiz-flip-muster{font-size:0.82rem;color:var(--muted2);line-height:1.5}
+  .quiz-flip-muster strong{color:#7dd3fc}
+  .quiz-flip-kw{font-size:0.75rem;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+  .kw-found{background:#10b98120;color:#86efac;padding:2px 8px;border-radius:99px}
+  .kw-miss{background:#ef444420;color:#fca5a5;padding:2px 8px;border-radius:99px}
+
+  .quiz-textarea{width:100%;min-height:100px;background:var(--surface);border:2px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:1rem;padding:14px;resize:none;outline:none;transition:border-color 0.2s;margin-bottom:12px;line-height:1.5;box-sizing:border-box;}
   .quiz-textarea:focus{border-color:var(--accent)}
-  .quiz-submit{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:12px}
+  .quiz-textarea.richtig{border-color:var(--correct);background:#10b98108}
+  .quiz-textarea.teilweise{border-color:var(--warning);background:#f59e0b08}
+  .quiz-textarea.falsch{border-color:var(--danger);background:#ef444408}
+  .quiz-submit{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:12px;box-shadow:0 2px 12px #3b7ff530}
   .quiz-submit:disabled{opacity:0.4;cursor:default}
-  .quiz-feedback{border-radius:14px;padding:14px 16px;margin-bottom:12px;display:none;font-size:0.88rem;line-height:1.6}
-  .quiz-feedback.richtig{background:#10b98115;border:1px solid #10b98144}
-  .quiz-feedback.teilweise{background:#f59e0b15;border:1px solid #f59e0b44}
-  .quiz-feedback.falsch{background:#ef444415;border:1px solid #ef444444}
-  .quiz-verdict{font-weight:700;font-size:1rem;margin-bottom:6px}
-  .richtig .quiz-verdict{color:var(--correct)}.teilweise .quiz-verdict{color:var(--warning)}.falsch .quiz-verdict{color:var(--danger)}
-  .quiz-kw-found{color:#86efac;font-size:0.82rem;margin-bottom:4px}
-  .quiz-kw-miss{color:#fca5a5;font-size:0.82rem;margin-bottom:8px}
-  .quiz-muster{color:var(--muted2);font-size:0.82rem;border-top:1px solid var(--border);padding-top:8px;margin-top:8px}
-  .quiz-muster strong{color:#7dd3fc}
   .quiz-next{width:100%;padding:14px;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;color:var(--text);font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;display:none}
   .quiz-result{text-align:center;padding:20px 0}
   .quiz-result-score{font-size:3rem;font-weight:700;margin:12px 0}
@@ -487,15 +507,12 @@ function renderQuiz(inhalt, backLabel, backFn, onCompleteFn) {
       <div class="quiz-progress"><div class="quiz-progress-fill" style="width:${(current/shuffled.length)*100}%"></div></div>
       <div class="quiz-counter">Frage ${current+1} von ${shuffled.length}</div>
       <div class="quiz-scores"><span class="qs-r">✅ ${richtig}</span><span class="qs-t">⚡ ${teilweise}</span><span class="qs-f">❌ ${falsch}</span></div>
-      <div class="quiz-frage">${shuffled[current].frage}</div>
-      <textarea class="quiz-textarea" id="quiz-answer" placeholder="Antwort hier schreiben..."></textarea>
+
+      <!-- Quiz Card -->
+      <div class="quiz-card" id="quiz-flip-card">${shuffled[current].frage}</div>
+
+      <textarea class="quiz-textarea" id="quiz-answer" placeholder="Antwort hier schreiben... (Strg+Enter zum Abgeben)"></textarea>
       <button class="quiz-submit" id="quiz-submit" onclick="quizAbgeben()">✓ Antwort abgeben</button>
-      <div class="quiz-feedback" id="quiz-feedback">
-        <div class="quiz-verdict" id="quiz-verdict"></div>
-        <div class="quiz-kw-found" id="quiz-kw-found"></div>
-        <div class="quiz-kw-miss" id="quiz-kw-miss"></div>
-        <div class="quiz-muster" id="quiz-muster"></div>
-      </div>
       <button class="quiz-next" id="quiz-next" onclick="quizWeiter()">Weiter →</button>
     </div>`;
     if (isMob) { setMobile(backBtnHTML + titleHTML + html); setDesktop(""); }
@@ -506,49 +523,268 @@ function renderQuiz(inhalt, backLabel, backFn, onCompleteFn) {
     }, 50);
   }
 
+  // Falsch beantwortete Fragen für Wiederholung speichern
+  const falscheFragen = [];
+
   window.quizAbgeben = function() {
-    const answer = document.getElementById('quiz-answer')?.value.trim();
+    const answerEl = document.getElementById('quiz-answer');
+    const answer = answerEl?.value.trim();
     if (!answer || answer.length < 2) return;
-    document.getElementById('quiz-submit').disabled = true;
-    document.getElementById('quiz-answer').disabled = true;
+
+    const submitBtn = document.getElementById('quiz-submit');
+    const nextBtn   = document.getElementById('quiz-next');
+    const flipCard  = document.getElementById('quiz-flip-card');
+
+    if (submitBtn) submitBtn.disabled = true;
+    if (answerEl)  answerEl.disabled  = true;
+
     const { verdict, matched, missing } = bewerte(answer, shuffled[current]);
     if (verdict==='richtig') richtig++; else if (verdict==='teilweise') teilweise++; else falsch++;
-    const icons = { richtig:'✅ Richtig!', teilweise:'⚡ Teilweise richtig', falsch:'❌ Falsch' };
-    const fb = document.getElementById('quiz-feedback');
-    fb.className = `quiz-feedback ${verdict}`;
-    document.getElementById('quiz-verdict').textContent = icons[verdict];
-    document.getElementById('quiz-kw-found').textContent = matched.length ? '✓ Erkannt: '+matched.join(', ') : '';
-    document.getElementById('quiz-kw-miss').textContent  = missing.length ? '✗ Fehlend: '+missing.join(', ')  : '';
-    document.getElementById('quiz-muster').innerHTML = `<strong>Musterantwort:</strong> ${shuffled[current].muster}`;
-    fb.style.display='block';
-    document.getElementById('quiz-next').style.display='block';
-    document.getElementById('quiz-submit').style.display='none';
+
+    const icons   = { richtig:'✅ Richtig!', teilweise:'⚡ Teilweise richtig', falsch:'❌ Falsch' };
+    const kwFound = matched.map(k => `<span class="kw-found">✓ ${k}</span>`).join('');
+    const kwMiss  = missing.map(k => `<span class="kw-miss">✗ ${k}</span>`).join('');
+
+    // Textarea einfärben
+    if (answerEl) answerEl.className = 'quiz-textarea ' + verdict;
+
+    // Card Reveal
+    if (flipCard) {
+      flipCard.className = 'quiz-card ' + verdict + ' quiz-card-reveal';
+      flipCard.innerHTML =
+        '<div class="quiz-flip-verdict">' + icons[verdict] + '</div>' +
+        '<div class="quiz-flip-muster"><strong>Musterlösung:</strong> ' + shuffled[current].muster + '</div>' +
+        (kwFound || kwMiss ? '<div class="quiz-flip-kw">' + kwFound + kwMiss + '</div>' : '');
+    }
+
+    if (submitBtn) submitBtn.style.display = 'none';
+    if (nextBtn)   nextBtn.style.display   = 'block';
   };
 
   window.quizWeiter = function() {
+    // Falsche Fragen tracken
+    const lastVerdict = document.getElementById('quiz-feedback')?.className?.replace('quiz-feedback ', '');
+    if (lastVerdict === 'falsch' || lastVerdict === 'teilweise') {
+      falscheFragen.push(shuffled[current]);
+    }
     current++;
     if (current >= shuffled.length) {
       const isMob = window.innerWidth <= 700;
       const pts = richtig + teilweise * 0.5;
       const pct = Math.round((pts / shuffled.length) * 100);
-      if (window._quizState.onCompleteFn) window._quizState.onCompleteFn();
+      const bestanden = pct >= 80;
+
+      // Nur als erledigt markieren wenn >= 80%
+      if (bestanden && window._quizState.onCompleteFn) {
+        window._quizState.onCompleteFn();
+      }
+
+      const scoreColor = bestanden ? 'var(--correct)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+      const scoreBg    = bestanden ? '#10b98115' : pct >= 50 ? '#f59e0b15' : '#ef444415';
+      const scoreBorder= bestanden ? '#10b98130' : pct >= 50 ? '#f59e0b30' : '#ef444430';
+      const statusMsg  = bestanden
+        ? '<div style="color:var(--correct);font-weight:700;margin-bottom:8px">✅ Als erledigt markiert!</div>'
+        : pct >= 50
+          ? '<div style="color:var(--warning);font-weight:600;font-size:0.88rem;margin-bottom:8px">⚡ Noch nicht erledigt — mind. 80% erforderlich</div>'
+          : '<div style="color:var(--danger);font-weight:600;font-size:0.88rem;margin-bottom:8px">❌ Noch nicht erledigt — mind. 80% erforderlich</div>';
+
+      const wiederholBtn = falscheFragen.length > 0
+        ? `<button class="quiz-restart" style="background:linear-gradient(135deg,var(--warning),var(--danger))"
+            onclick="renderQuizWiederholung()">
+            🔄 ${falscheFragen.length} falsche Fragen wiederholen
+           </button>`
+        : '';
+
       const resHTML = quizStyles + `<div class="quiz-wrap"><div class="quiz-result">
-        <div style="font-size:3rem">🎉</div>
-        <h2 style="margin:12px 0 4px">Abgeschlossen!</h2>
-        <div class="quiz-result-score gradient-text">${pct}%</div>
-        <div class="quiz-scores" style="justify-content:center">
-          <span class="qs-r">✅ ${richtig}</span><span class="qs-t">⚡ ${teilweise}</span><span class="qs-f">❌ ${falsch}</span>
+        <div style="font-size:2.5rem;margin-bottom:12px">${bestanden ? '🎉' : pct >= 50 ? '📚' : '💪'}</div>
+        <h2 style="margin:0 0 12px">Quiz abgeschlossen!</h2>
+        <div style="background:${scoreBg};border:1px solid ${scoreBorder};border-radius:16px;padding:20px;margin-bottom:16px">
+          <div style="font-family:'Syne',sans-serif;font-size:3rem;font-weight:800;color:${scoreColor};line-height:1">${pct}%</div>
+          <div style="font-size:0.82rem;color:var(--muted2);margin-top:4px">${shuffled.length} Fragen · ${richtig} richtig · ${teilweise} teilweise · ${falsch} falsch</div>
         </div>
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
-          <button class="quiz-restart" onclick="renderQuiz(window._quizState.inhalt,window._quizState.backLabel,window._quizState.backFn,window._quizState.onCompleteFn)">🔄 Nochmal</button>
+        ${statusMsg}
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+          ${wiederholBtn}
+          <button class="quiz-restart" onclick="renderQuiz(window._quizState.inhalt,window._quizState.backLabel,window._quizState.backFn,window._quizState.onCompleteFn)">🔄 Nochmal von vorne</button>
           <button class="btn btn-secondary" onclick="window._quizState.backFn()">← Zurück</button>
         </div>
       </div></div>`;
       if (isMob) setMobile(resHTML); else setDesktop(resHTML);
+
+      // Wiederholungs-Funktion
+      window.renderQuizWiederholung = function() {
+        const wiederholInhalt = {
+          ...window._quizState.inhalt,
+          titel: window._quizState.inhalt.titel + ' — Wiederholung',
+          inhalt: { fragen: falscheFragen }
+        };
+        renderQuiz(wiederholInhalt, window._quizState.backLabel, window._quizState.backFn, window._quizState.onCompleteFn);
+      };
+
       return;
     }
     renderView();
   };
 
   renderView();
+}
+// ── LERNKARTEN RENDERER ───────────────────────────────────────
+function renderLernkarten(inhalt, backLabel, backFn, onCompleteFn) {
+  const karten = inhalt.inhalt?.karten || [];
+  if (!karten.length) return alert("Keine Lernkarten gefunden.");
+
+  const shuffled = [...karten].sort(() => Math.random() - 0.5);
+  let current = 0, gewusst = 0, nichtGewusst = 0;
+
+  const styles = `<style>
+    .lk-wrap{max-width:580px}
+    .lk-progress-wrap{margin-bottom:20px}
+    .lk-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .lk-progress-label{font-size:0.78rem;color:var(--muted2);font-weight:600}
+    .lk-progress{height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+    .lk-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width 0.5s ease}
+    .lk-scores{display:flex;gap:10px;margin-bottom:20px}
+    .lk-score-pill{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:99px;font-size:0.82rem;font-weight:700}
+    .lk-score-g{background:#10b98115;border:1px solid #10b98130;color:var(--correct)}
+    .lk-score-n{background:#ef444415;border:1px solid #ef444430;color:var(--danger)}
+    .lk-scene{width:100%;perspective:1200px;margin-bottom:20px;height:220px;cursor:pointer}
+    .lk-card{width:100%;height:220px;position:relative;transform-style:preserve-3d;transition:transform 0.55s cubic-bezier(0.4,0,0.2,1)}
+    .lk-card.flipped{transform:rotateY(180deg)}
+    .lk-front,.lk-back{position:absolute;top:0;left:0;right:0;bottom:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;gap:10px}
+    .lk-front{background:var(--surface);border:1px solid var(--border)}
+    .lk-back{background:var(--surface2);border:1px solid var(--border2);transform:rotateY(180deg)}
+    .lk-back.gewusst{background:#10b98112;border-color:#10b98130}
+    .lk-back.nicht{background:#ef444412;border-color:#ef444430}
+    .lk-hint{font-size:0.72rem;color:var(--muted);margin-top:8px}
+    .lk-tag{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}
+    .lk-word{font-size:1.8rem;font-weight:800;font-family:"Syne",sans-serif;line-height:1.2}
+    .lk-sub{font-size:0.85rem;color:var(--muted2);font-style:italic}
+    .lk-btn-row{display:flex;gap:10px;margin-top:4px}
+    .lk-btn{flex:1;padding:14px;border:none;border-radius:14px;font-family:inherit;font-size:0.95rem;font-weight:700;cursor:pointer;transition:all 0.18s;display:none}
+    .lk-btn:active{transform:scale(0.97)}
+    .lk-btn-flip{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:100%;flex:none}
+    .lk-btn-g{background:#10b98120;border:1px solid #10b98140;color:var(--correct)}
+    .lk-btn-n{background:#ef444420;border:1px solid #ef444440;color:var(--danger)}
+    .lk-result{text-align:center;padding:12px 0}
+    .lk-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+    .lk-result-stat{border-radius:14px;padding:16px;text-align:center}
+    .lk-result-val{font-size:2rem;font-weight:800;font-family:"Syne",sans-serif;line-height:1}
+    .lk-result-lbl{font-size:0.75rem;color:var(--muted2);margin-top:4px;font-weight:600}
+  </style>`;
+
+  function getEl(id) {
+    const isMob = window.innerWidth <= 700;
+    const container = isMob ? document.getElementById('mob-main') : document.getElementById('main');
+    return container ? container.querySelector('#' + id) : document.getElementById(id);
+  }
+
+  function cardHTML() {
+    const k = shuffled[current];
+    const pct = Math.round((current / shuffled.length) * 100);
+    return styles +
+      '<div class="lk-wrap">' +
+        '<div class="lk-progress-wrap">' +
+          '<div class="lk-progress-top">' +
+            '<span class="lk-progress-label">Karte ' + (current+1) + ' von ' + shuffled.length + '</span>' +
+            '<span class="lk-progress-label">' + pct + '%</span>' +
+          '</div>' +
+          '<div class="lk-progress"><div class="lk-progress-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>' +
+        '<div class="lk-scores">' +
+          '<div class="lk-score-pill lk-score-g">✅ ' + gewusst + ' gewusst</div>' +
+          '<div class="lk-score-pill lk-score-n">❌ ' + nichtGewusst + ' nicht gewusst</div>' +
+        '</div>' +
+        '<div class="lk-scene" onclick="lkFlip()">' +
+          '<div class="lk-card" id="lk-card">' +
+            '<div class="lk-front">' +
+              '<div class="lk-tag">❓ Frage</div>' +
+              '<div class="lk-word">' + k.frage + '</div>' +
+              '<div class="lk-hint">Tippe zum Umdrehen</div>' +
+            '</div>' +
+            '<div class="lk-back" id="lk-back">' +
+              '<div class="lk-tag" style="color:var(--correct)">💡 Antwort</div>' +
+              '<div class="lk-word">' + k.antwort + '</div>' +
+              (k.erklaerung ? '<div class="lk-sub">' + k.erklaerung + '</div>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lk-btn-row">' +
+          '<button class="lk-btn lk-btn-flip" id="lk-flip-btn" onclick="lkFlip()">👁 Antwort zeigen</button>' +
+          '<button class="lk-btn lk-btn-n" id="lk-btn-n" onclick="lkWeiter(false)">❌ Nicht gewusst</button>' +
+          '<button class="lk-btn lk-btn-g" id="lk-btn-g" onclick="lkWeiter(true)">✅ Gewusst</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function resultHTML() {
+    const pct = Math.round((gewusst / shuffled.length) * 100);
+    const bestanden = pct >= 80;
+    const scoreColor  = bestanden ? 'var(--correct)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+    const scoreBg     = bestanden ? '#10b98115' : pct >= 50 ? '#f59e0b15' : '#ef444415';
+    const scoreBorder = bestanden ? '#10b98130' : pct >= 50 ? '#f59e0b30' : '#ef444430';
+
+    return styles +
+      '<div class="lk-wrap"><div class="lk-result">' +
+        '<div style="font-size:3rem;margin-bottom:12px">' + (bestanden ? '🎉' : pct >= 50 ? '📚' : '💪') + '</div>' +
+        '<h2 style="margin-bottom:6px">Lernkarten abgeschlossen!</h2>' +
+        '<div style="background:' + scoreBg + ';border:1px solid ' + scoreBorder + ';border-radius:20px;padding:20px;margin-bottom:16px">' +
+          '<div style="font-family:Syne,sans-serif;font-size:3rem;font-weight:800;color:' + scoreColor + ';line-height:1">' + pct + '%</div>' +
+          '<div style="font-size:0.82rem;color:var(--muted2);margin-top:4px">' + shuffled.length + ' Karten</div>' +
+        '</div>' +
+        (bestanden
+          ? '<div style="color:var(--correct);font-weight:700;margin-bottom:12px">✅ Als erledigt markiert!</div>'
+          : '<div style="color:var(--warning);font-size:0.88rem;font-weight:600;margin-bottom:12px">⚡ Noch nicht erledigt — mind. 80% erforderlich</div>') +
+        '<div class="lk-result-grid">' +
+          '<div class="lk-result-stat" style="background:#10b98112;border:1px solid #10b98128"><div class="lk-result-val" style="color:var(--correct)">' + gewusst + '</div><div class="lk-result-lbl">✅ Gewusst</div></div>' +
+          '<div class="lk-result-stat" style="background:#ef444412;border:1px solid #ef444428"><div class="lk-result-val" style="color:var(--danger)">' + nichtGewusst + '</div><div class="lk-result-lbl">❌ Nicht gewusst</div></div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">' +
+          '<button class="btn btn-primary" style="padding:13px" onclick="renderLernkarten(window._lkState.inhalt,window._lkState.backLabel,window._lkState.backFn,window._lkState.onCompleteFn)">🔄 Nochmal</button>' +
+          '<button class="btn btn-secondary" style="padding:13px" onclick="window._lkState.backFn()">← Zurück</button>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  function render() {
+    const isMob  = window.innerWidth <= 700;
+    const backD  = '<button class="btn btn-secondary btn-sm" onclick="window._lkState.backFn()" style="margin-bottom:20px">' + backLabel + '</button>';
+    const backM  = '<button class="mob-back" onclick="window._lkState.backFn()">' + backLabel + '</button>';
+    const titleD = '<h1 style="margin-bottom:20px">' + inhalt.titel + '</h1>';
+    const titleM = '<div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">' + inhalt.titel + '</div>';
+    if (isMob) { setMobile(backM + titleM + cardHTML()); setDesktop(''); }
+    else       { setDesktop(backD + titleD + cardHTML()); setMobile(''); }
+  }
+
+  window._lkState = { inhalt, backLabel, backFn, onCompleteFn };
+
+  window.lkFlip = function() {
+    const card    = getEl('lk-card');
+    const flipBtn = getEl('lk-flip-btn');
+    const btnG    = getEl('lk-btn-g');
+    const btnN    = getEl('lk-btn-n');
+    if (!card) return;
+    card.classList.add('flipped');
+    if (flipBtn) flipBtn.style.display = 'none';
+    if (btnG) btnG.style.display = 'block';
+    if (btnN) btnN.style.display = 'block';
+  };
+
+  window.lkWeiter = function(hatGewusst) {
+    if (hatGewusst) gewusst++; else nichtGewusst++;
+    current++;
+    if (current >= shuffled.length) {
+      const pct = Math.round((gewusst / shuffled.length) * 100);
+      const bestanden = pct >= 80;
+      if (bestanden && onCompleteFn) onCompleteFn();
+      const isMob = window.innerWidth <= 700;
+      const backD = '<button class="btn btn-secondary btn-sm" onclick="window._lkState.backFn()" style="margin-bottom:20px">' + backLabel + '</button>';
+      const backM = '<button class="mob-back" onclick="window._lkState.backFn()">' + backLabel + '</button>';
+      if (isMob) { setMobile(backM + resultHTML()); setDesktop(''); }
+      else       { setDesktop(backD + resultHTML()); setMobile(''); }
+      return;
+    }
+    render();
+  };
+
+  render();
 }
