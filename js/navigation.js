@@ -9,6 +9,7 @@ function buildSidebar() {
     <button class="sidebar-link"        id="lnk-lf"        onclick="showLernfelder()">  <span class="sidebar-icon">📚</span>Lernfelder</button>
     <button class="sidebar-link"        id="lnk-pruefung"  onclick="showPruefungen()">  <span class="sidebar-icon">📝</span>Prüfungen & Arbeiten</button>
     <button class="sidebar-link"        id="lnk-fp"        onclick="showFortschritt()"> <span class="sidebar-icon">📊</span>Mein Fortschritt</button>
+    <button class="sidebar-link"        id="lnk-profil"    onclick="showProfil()">      <span class="sidebar-icon">👤</span>Mein Profil</button>
 
     <div class="sidebar-title" style="margin-top:12px">Fächer</div>
     <button class="sidebar-link" id="lnk-fach-1" onclick="showFach(1)"><span class="sidebar-icon">🇬🇧</span>Englisch</button>
@@ -42,6 +43,7 @@ function buildBottomNav() {
     { id:'bn-pruefung', icon:'📝', label:'Prüfungen',  fn:'showPruefungen()' },
     { id:'bn-faecher',  icon:'📘', label:'Fächer',     fn:'showFaecherMob()' },
     { id:'bn-fp',       icon:'📊', label:'Fortschritt',fn:'showFortschritt()' },
+    { id:'bn-profil',   icon:'👤', label:'Profil',     fn:'showProfil()' },
     ...(isMod   ? [{ id:'bn-mod',   icon:'✏️', label:'Verwalten', fn:'showModMenu()' }] : []),
     ...(isAdmin && !isMod ? [{ id:'bn-admin', icon:'⚙️', label:'Admin', fn:'showAdmin()' }] : []),
   ];

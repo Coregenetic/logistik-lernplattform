@@ -488,11 +488,67 @@ const quizStyles = `<style>
   .quiz-restart{padding:14px 32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;margin-top:8px}
 </style>`;
 
-function renderQuiz(inhalt, backLabel, backFn, onCompleteFn) {
+async function renderQuiz(inhalt, backLabel, backFn, onCompleteFn) {
   const fragen = inhalt.inhalt?.fragen || [];
   if (!fragen.length) return alert("Keine Fragen gefunden.");
-  const shuffled = [...fragen].sort(() => Math.random() - 0.5);
-  let current = 0, richtig = 0, teilweise = 0, falsch = 0;
+
+  // Quiz Session laden
+  const inhaltTyp = inhalt.kapitel_id ? 'fach' : 'lf';
+  const { data: existingSession } = await db.from('quiz_session')
+    .select('*').eq('user_id', USER.id).eq('inhalt_id', inhalt.id).eq('inhalt_typ', inhaltTyp)
+    .maybeSingle();
+
+  // Weitermachen anbieten wenn Session existiert
+  if (existingSession && existingSession.current_index > 0 && existingSession.current_index < fragen.length) {
+    const isMob = window.innerWidth <= 700;
+    const backBtn = isMob
+      ? `<button class="mob-back" onclick="${backFn.toString().includes('showK') ? backFn : 'backFn()'}">${backLabel}</button>`
+      : `<button class="btn btn-secondary btn-sm" onclick="window._quizState?.backFn()" style="margin-bottom:20px">${backLabel}</button>`;
+    const resumeHTML = `
+      <div style="max-width:480px">
+        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:28px;text-align:center">
+          <div style="font-size:2.5rem;margin-bottom:12px">▶️</div>
+          <h2 style="margin-bottom:8px">Quiz fortsetzen?</h2>
+          <p style="color:var(--muted2);font-size:0.88rem;margin-bottom:20px">Du hast zuletzt bei <strong>Frage ${existingSession.current_index} von ${fragen.length}</strong> aufgehört.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-primary" style="padding:13px" onclick="window._quizResume()">▶ Weitermachen</button>
+            <button class="btn btn-secondary" style="padding:13px" onclick="window._quizFresh()">🔄 Neu starten</button>
+          </div>
+        </div>
+      </div>`;
+    window._quizState = { inhalt, backLabel, backFn, onCompleteFn };
+    window._quizResume = () => _startQuiz(inhalt, backLabel, backFn, onCompleteFn, existingSession, inhaltTyp, false);
+    window._quizFresh  = () => _startQuiz(inhalt, backLabel, backFn, onCompleteFn, null, inhaltTyp, true);
+    if (isMob) { setMobile(resumeHTML); setDesktop(''); }
+    else       { setDesktop(resumeHTML); setMobile(''); }
+    return;
+  }
+
+  _startQuiz(inhalt, backLabel, backFn, onCompleteFn, existingSession, inhaltTyp, true);
+}
+
+async function _startQuiz(inhalt, backLabel, backFn, onCompleteFn, session, inhaltTyp, fresh) {
+  const fragen = inhalt.inhalt?.fragen || [];
+  let shuffled, current, richtig, teilweise, falsch;
+
+  if (!fresh && session && session.reihenfolge) {
+    shuffled  = session.reihenfolge.map(id => fragen[id]).filter(Boolean);
+    current   = session.current_index;
+    richtig   = session.richtig || 0;
+    teilweise = session.teilweise || 0;
+    falsch    = session.falsch || 0;
+  } else {
+    shuffled  = [...fragen].sort(() => Math.random() - 0.5);
+    current   = 0; richtig = 0; teilweise = 0; falsch = 0;
+    // Neue Session anlegen
+    await db.from('quiz_session').upsert({
+      user_id: USER.id, inhalt_id: inhalt.id, inhalt_typ: inhaltTyp,
+      current_index: 0, richtig: 0, teilweise: 0, falsch: 0,
+      reihenfolge: shuffled.map((_, i) => fragen.indexOf(_)),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,inhalt_id,inhalt_typ' });
+  }
+
   window._quizState = { inhalt, backLabel, backFn, onCompleteFn };
 
   function renderView() {
@@ -568,7 +624,17 @@ function renderQuiz(inhalt, backLabel, backFn, onCompleteFn) {
       falscheFragen.push(shuffled[current]);
     }
     current++;
+
+    // Session speichern
+    db.from('quiz_session').upsert({
+      user_id: USER.id, inhalt_id: inhalt.id, inhalt_typ: inhaltTyp,
+      current_index: current, richtig, teilweise, falsch,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,inhalt_id,inhalt_typ' });
+
     if (current >= shuffled.length) {
+      // Session löschen wenn fertig
+      db.from('quiz_session').delete().eq('user_id', USER.id).eq('inhalt_id', inhalt.id).eq('inhalt_typ', inhaltTyp);
       const isMob = window.innerWidth <= 700;
       const pts = richtig + teilweise * 0.5;
       const pct = Math.round((pts / shuffled.length) * 100);
@@ -772,7 +838,17 @@ function renderLernkarten(inhalt, backLabel, backFn, onCompleteFn) {
   window.lkWeiter = function(hatGewusst) {
     if (hatGewusst) gewusst++; else nichtGewusst++;
     current++;
+
+    // Session speichern
+    db.from('quiz_session').upsert({
+      user_id: USER.id, inhalt_id: inhalt.id, inhalt_typ: inhaltTyp,
+      current_index: current, richtig, teilweise, falsch,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,inhalt_id,inhalt_typ' });
+
     if (current >= shuffled.length) {
+      // Session löschen wenn fertig
+      db.from('quiz_session').delete().eq('user_id', USER.id).eq('inhalt_id', inhalt.id).eq('inhalt_typ', inhaltTyp);
       const pct = Math.round((gewusst / shuffled.length) * 100);
       const bestanden = pct >= 80;
       if (bestanden && onCompleteFn) onCompleteFn();
